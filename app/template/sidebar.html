@@ -121,8 +121,8 @@
         {% endif %}
 
         <!-- 6. Resource Booking – all roles -->
-        <a href="#"
-           class="af-sidebar__item {% if page == 'booking.index' %}af-sidebar__item--active{% endif %}"
+        <a href="{{ url_for('bookings.booking_page') }}"
+           class="af-sidebar__item {% if page == 'bookings.booking_page' %}af-sidebar__item--active{% endif %}"
            id="nav-booking">
             <svg class="af-sidebar__icon" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

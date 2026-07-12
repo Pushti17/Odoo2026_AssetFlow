@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resource Booking – AssetFlow</title>
+    <meta name="description" content="AssetFlow Resource Booking – Reserve and schedule shared organizational resources.">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <style>
+        /* Form styling consistent with org_setup.html */
+        .af-field-group {
+            margin-bottom: 16px;
+        }
+        .af-field-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--af-text-muted);
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .af-form-input, .af-form-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            outline: none;
+            border-radius: 12px;
+            background: #f5f7fb;
+            font-family: inherit;
+            font-size: 14.5px;
+            box-shadow:
+                inset 2px 2px 5px rgba(0,0,0,.04),
+                inset -2px -2px 5px rgba(255,255,255,.7);
+            transition: box-shadow .2s;
+        }
+        .af-form-input:focus, .af-form-select:focus {
+            box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+        }
+
+        .af-btn-pill {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 50px;
+            background: var(--af-indigo);
+            color: white;
+            font-family: inherit;
+            font-size: 14.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: .2s;
+            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(99,102,241,.2);
+        }
+        .af-btn-pill:hover {
+            background: var(--af-indigo-d);
+            transform: translateY(-1.5px);
+        }
+
+        /* Booking layout grid */
+        .booking-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        @media (max-width: 992px) {
+            .booking-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Conflict Banner */
+        .conflict-banner {
+            display: none;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 500;
+            background: #fff1f2;
+            color: #9f1239;
+            border: 1px solid #fda4af;
+            margin-top: 12px;
+            animation: fadeIn .3s ease;
+        }
+
+        /* Success Banner */
+        .success-banner {
+            display: none;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 500;
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+            margin-top: 12px;
+            animation: fadeIn .3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Booking resource items */
+        .resource-card {
+            padding: 14px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.4);
+            border: 1px solid rgba(255,255,255,0.2);
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .resource-card:hover {
+            background: rgba(99,102,241,0.06);
+            border-color: rgba(99,102,241,0.2);
+            transform: translateX(3px);
+        }
+        .resource-card.selected {
+            background: rgba(99,102,241,0.1);
+            border-color: var(--af-indigo);
+        }
+
+        /* Dynamic calendar schedule view */
+        .schedule-timeline {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 250px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .schedule-item {
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: #f8fafc;
+            border-left: 4px solid var(--af-indigo);
+            font-size: 12.5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .schedule-item.no-bookings {
+            border-left: 4px solid var(--af-emerald);
+            background: #f0fdf4;
+            color: #15803d;
+        }
+    </style>
+</head>
+<body>
+
+<div class="af-layout">
+
+    <!-- ── Sidebar include ── -->
+    {% include 'sidebar.html' %}
+
+    <div class="af-main">
+
+        <!-- ── Top-bar ── -->
+        <header class="af-topbar">
+            <button class="af-topbar__hamburger" id="sidebarToggle" aria-label="Toggle sidebar">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
+
+            <div class="af-topbar__breadcrumb">
+                <span class="af-topbar__breadcrumb-parent">AssetFlow</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+                <span class="af-topbar__breadcrumb-current">Resource Booking</span>
+            </div>
+
+            <div class="af-topbar__actions">
+                <div class="af-topbar__avatar">
+                    {{ session.get('user_name', 'U')[0].upper() }}
+                </div>
+            </div>
+        </header>
+
+        <!-- ── Page body ── -->
+        <main class="af-page">
+
+            <!-- Flash notifications -->
+            <div id="alertPlaceholder"></div>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="af-flash af-flash--{{ category }}" style="margin-bottom: 15px;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <!-- Hero header -->
+            <section class="af-dashboard__hero" style="margin-bottom: 5px;">
+                <div class="af-dashboard__hero-text">
+                    <h1 class="af-dashboard__title">Shared Resource Scheduling</h1>
+                    <p class="af-dashboard__subtitle">Book conference rooms, testing devices, vehicles, or workspace hubs.</p>
+                </div>
+            </section>
+
+            <!-- Split Grid Layout -->
+            <div class="booking-grid">
+
+                <!-- Left Column: Form & Live Availability Schedule -->
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+
+                    <!-- Booking Form Panel -->
+                    <div class="af-panel">
+                        <div class="af-panel__header">
+                            <h2 class="af-panel__title">Reserve a Time Slot</h2>
+                        </div>
+
+                        <form id="bookingForm" onsubmit="handleBookingSubmit(event)">
+                            <div class="af-field-group">
+                                <label for="resourceSelect">Select Resource</label>
+                                <select id="resourceSelect" name="asset_id" class="af-form-select" onchange="loadResourceSchedule(this.value)" required>
+                                    <option value="" disabled selected>-- Choose a bookable asset --</option>
+                                    {% for res in resources %}
+                                    <option value="{{ res.id }}">{{ res.name }} ({{ res.location or 'No Location' }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="af-field-group">
+                                <label for="bookingPurpose">Purpose of Reservation</label>
+                                <input type="text" id="bookingPurpose" name="purpose" class="af-form-input" placeholder="e.g. Client presentation, Device testing" required>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div class="af-field-group">
+                                    <label for="startTime">Start Time</label>
+                                    <input type="datetime-local" id="startTime" name="start_time" class="af-form-input" required>
+                                </div>
+                                <div class="af-field-group">
+                                    <label for="endTime">End Time</label>
+                                    <input type="datetime-local" id="endTime" name="end_time" class="af-form-input" required>
+                                </div>
+                            </div>
+
+                            <div class="conflict-banner" id="conflictBanner"></div>
+                            <div class="success-banner" id="successBanner"></div>
+
+                            <button type="submit" class="af-btn-pill" style="margin-top: 15px;">Confirm Reservation</button>
+                        </form>
+                    </div>
+
+                    <!-- Live Schedule / Calendar View Panel -->
+                    <div class="af-panel" id="schedulePanel" style="display: none;">
+                        <div class="af-panel__header">
+                            <div>
+                                <h2 class="af-panel__title" id="scheduleTitle">Resource Schedule</h2>
+                                <p class="af-panel__subtitle">Check active reservations to avoid scheduling conflicts.</p>
+                            </div>
+                        </div>
+                        <div class="schedule-timeline" id="scheduleTimeline">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Right Column: Resources Directory & Personal Bookings History -->
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+
+                    <!-- Bookable Resources Directory -->
+                    <div class="af-panel">
+                        <div class="af-panel__header">
+                            <h2 class="af-panel__title">Available Shared Resources</h2>
+                        </div>
+                        <div style="max-height: 280px; overflow-y: auto; padding-right: 4px;">
+                            {% if resources %}
+                                {% for res in resources %}
+                                <div class="resource-card" id="resource-card-{{ res.id }}" onclick="selectResource('{{ res.id }}')">
+                                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                                        <strong>{{ res.name }}</strong>
+                                        <span class="af-status af-status--approved" style="font-size: 10px; padding: 2px 8px;">
+                                            {{ res.status }}
+                                        </span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 11.5px; color: var(--af-text-muted);">
+                                        <span>Tag: <strong>{{ res.asset_tag }}</strong></span>
+                                        <span>Loc: {{ res.location or 'N/A' }}</span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div style="padding: 24px; text-align: center; color: var(--af-text-muted); font-size: 13.5px;">
+                                    No shared bookable resources registered in the system.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Personal Booking History Panel -->
+                    <div class="af-panel">
+                        <div class="af-panel__header">
+                            <h2 class="af-panel__title">My Bookings History</h2>
+                        </div>
+                        <div class="af-table-wrap" style="max-height: 350px; overflow-y: auto;">
+                            {% if user_bookings %}
+                            <table class="af-table">
+                                <thead>
+                                    <tr>
+                                        <th>Resource</th>
+                                        <th>Time Slot</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="userBookingsTableBody">
+                                    {% for booking in user_bookings %}
+                                    <tr id="booking-row-{{ booking.id }}">
+                                        <td>
+                                            <strong>{{ booking.asset.name }}</strong>
+                                            <div style="font-size: 11px; color: var(--af-text-muted);">{{ booking.purpose }}</div>
+                                        </td>
+                                        <td style="font-size: 12px; line-height: 1.4;">
+                                            {{ booking.start_time.strftime('%d %b, %I:%M %p') }}<br>
+                                            <span style="color: var(--af-text-muted);">to</span> {{ booking.end_time.strftime('%d %b, %I:%M %p') }}
+                                        </td>
+                                        <td>
+                                            <span class="af-status {% if booking.status == 'Upcoming' %}af-status--review{% elif booking.status == 'Ongoing' %}af-status--approved{% elif booking.status == 'Cancelled' %}af-status--rejected{% else %}af-status--pending{% endif %}" id="status-badge-{{ booking.id }}">
+                                                {{ booking.status }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if booking.status in ['Upcoming', 'Ongoing'] %}
+                                            <button class="af-btn-reject" style="padding: 4px 8px; font-size: 11px;" onclick="cancelBooking({{ booking.id }})">
+                                                Cancel
+                                            </button>
+                                            {% else %}
+                                            <span style="color: var(--af-text-muted); font-size: 11.5px;">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% else %}
+                            <div id="noBookingsMessage" style="padding: 24px; text-align: center; color: var(--af-text-muted); font-size: 13.5px;">
+                                You haven't made any resource reservations yet.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<script>
+    // ── Live Sidebar control ──────────────────────────────────────────
+    const sidebar = document.getElementById('afSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const toggle = document.getElementById('sidebarToggle');
+    const closeBtn = document.getElementById('sidebarClose');
+
+    function openSidebar() { sidebar.classList.add('is-open'); overlay.classList.add('is-visible'); }
+    function closeSidebar() { sidebar.classList.remove('is-open'); overlay.classList.remove('is-visible'); }
+
+    if (toggle) toggle.addEventListener('click', openSidebar);
+    if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+    if (overlay) overlay.addEventListener('click', closeSidebar);
+
+    // ── Pre-fill datetimes for helper ─────────────────────────────────
+    (function initDateInputs() {
+        const startInput = document.getElementById('startTime');
+        const endInput = document.getElementById('endTime');
+        if (!startInput || !endInput) return;
+
+        const now = new Date();
+        now.setMinutes(0, 0, 0); // Round down to start of hour
+        
+        // Offset for local ISO string representation
+        const offset = now.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
+        
+        startInput.value = localISOTime;
+
+        // Default reservation duration: 1 hour
+        const oneHourLater = new Date(now.getTime() + (60 * 60 * 1000));
+        const localISOEnd = (new Date(oneHourLater - offset)).toISOString().slice(0, 16);
+        endInput.value = localISOEnd;
+    })();
+
+    // ── Select a Resource from Directory ──────────────────────────────
+    function selectResource(assetId) {
+        // Toggle selected styling
+        document.querySelectorAll('.resource-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        const selectedCard = document.getElementById(`resource-card-${assetId}`);
+        if (selectedCard) {
+            selectedCard.classList.add('selected');
+        }
+
+        // Set form dropdown value
+        const selectEl = document.getElementById('resourceSelect');
+        selectEl.value = assetId;
+
+        // Load Schedule
+        loadResourceSchedule(assetId);
+    }
+
+    // ── Load active schedule for resource (AJAX) ───────────────────────────
+    function loadResourceSchedule(assetId) {
+        if (!assetId) return;
+
+        const schedulePanel = document.getElementById('schedulePanel');
+        const scheduleTitle = document.getElementById('scheduleTitle');
+        const scheduleTimeline = document.getElementById('scheduleTimeline');
+
+        schedulePanel.style.display = 'block';
+        scheduleTimeline.innerHTML = '<div style="padding: 10px; color: var(--af-text-muted); font-size:13px;">Loading schedule...</div>';
+
+        fetch(`/bookings/calendar/${assetId}`)
+            .then(res => {
+                if (!res.ok) throw new Error('Could not load schedule');
+                return res.json();
+            })
+            .then(data => {
+                scheduleTitle.innerText = `Availability Schedule for "${data.asset_name}"`;
+                
+                if (data.bookings && data.bookings.length > 0) {
+                    let html = '';
+                    // Sort bookings by start time ascending
+                    data.bookings.sort((a, b) => new Date(a.start) - new Date(b.start));
+
+                    data.bookings.forEach(b => {
+                        const start = new Date(b.start).toLocaleString('en-IN', {
+                            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true
+                        });
+                        const end = new Date(b.end).toLocaleString('en-IN', {
+                            hour: '2-digit', minute: '2-digit', hour12: true
+                        });
+
+                        html += `
+                            <div class="schedule-item">
+                                <div>
+                                    <strong>${b.title}</strong>
+                                    <div style="font-size: 11px; color: var(--af-text-muted); margin-top:2px;">Purpose: ${b.purpose || 'Not specified'}</div>
+                                </div>
+                                <div style="text-align: right; font-weight: 500; font-size: 11.5px; color: var(--af-indigo);">
+                                    ${start} - ${end}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    scheduleTimeline.innerHTML = html;
+                } else {
+                    scheduleTimeline.innerHTML = `
+                        <div class="schedule-item no-bookings">
+                            No reservations found. This asset is fully available for booking.
+                        </div>
+                    `;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                scheduleTimeline.innerHTML = '<div style="padding: 10px; color: var(--af-rose); font-size: 12.5px;">Failed to load resource schedule.</div>';
+            });
+    }
+
+    // ── Handle booking submission ─────────────────────────────────────
+    function handleBookingSubmit(event) {
+        event.preventDefault();
+
+        const form = document.getElementById('bookingForm');
+        const assetId = document.getElementById('resourceSelect').value;
+        const purpose = document.getElementById('bookingPurpose').value;
+        const startTime = document.getElementById('startTime').value;
+        const endTime = document.getElementById('endTime').value;
+
+        const conflictBanner = document.getElementById('conflictBanner');
+        const successBanner = document.getElementById('successBanner');
+
+        conflictBanner.style.display = 'none';
+        successBanner.style.display = 'none';
+
+        if (!assetId || !startTime || !endTime) {
+            conflictBanner.innerText = 'Please fill out all required fields.';
+            conflictBanner.style.display = 'block';
+            return;
+        }
+
+        // Validate client-side start < end
+        if (new Date(startTime) >= new Date(endTime)) {
+            conflictBanner.innerText = 'Reservation start time must be before the end time.';
+            conflictBanner.style.display = 'block';
+            return;
+        }
+
+        const payload = {
+            asset_id: parseInt(assetId),
+            purpose: purpose,
+            start_time: new Date(startTime).toISOString(),
+            end_time: new Date(endTime).toISOString()
+        };
+
+        fetch('/bookings/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(async res => {
+            const data = await res.json();
+            if (res.status === 201) {
+                // Success
+                successBanner.innerText = data.message;
+                successBanner.style.display = 'block';
+                form.reset();
+                
+                // Reload list & schedule
+                loadResourceSchedule(assetId);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                // Handle conflict or validation error
+                conflictBanner.innerText = data.error || 'An error occurred during booking.';
+                conflictBanner.style.display = 'block';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            conflictBanner.innerText = 'A network error occurred. Please try again.';
+            conflictBanner.style.display = 'block';
+        });
+    }
+
+    // ── Cancel a booking ──────────────────────────────────────────────
+    function cancelBooking(bookingId) {
+        if (!confirm('Are you sure you want to cancel this resource reservation?')) return;
+
+        fetch(`/bookings/${bookingId}/cancel`, {
+            method: 'POST'
+        })
+        .then(async res => {
+            const data = await res.json();
+            if (res.ok) {
+                // Update row status dynamically
+                const badge = document.getElementById(`status-badge-${bookingId}`);
+                if (badge) {
+                    badge.className = 'af-status af-status--rejected';
+                    badge.innerText = 'Cancelled';
+                }
+                
+                // Remove cancel button
+                const row = document.getElementById(`booking-row-${bookingId}`);
+                if (row) {
+                    const actionCell = row.cells[3];
+                    actionCell.innerHTML = '<span style="color: var(--af-text-muted); font-size: 11.5px;">-</span>';
+                }
+
+                // If currently showing schedule, reload it
+                const selectedAssetId = document.getElementById('resourceSelect').value;
+                if (selectedAssetId) {
+                    loadResourceSchedule(selectedAssetId);
+                }
+
+                // Show dynamic success notification
+                showToastNotification('Reservation cancelled successfully.', 'success');
+            } else {
+                showToastNotification(data.error || 'Failed to cancel reservation.', 'error');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToastNotification('Network error occurred.', 'error');
+        });
+    }
+
+    // Helpers
+    function showToastNotification(message, type) {
+        const placeholder = document.getElementById('alertPlaceholder');
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `af-flash af-flash--${type}`;
+        alertDiv.style.marginBottom = '15px';
+        alertDiv.innerText = message;
+        
+        placeholder.innerHTML = '';
+        placeholder.appendChild(alertDiv);
+
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 4000);
+    }
+</script>
+
+</body>
+</html>

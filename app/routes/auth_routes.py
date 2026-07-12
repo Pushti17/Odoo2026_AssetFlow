@@ -164,6 +164,7 @@ def login():
         session['user_name'] = user.name
         session['user_role'] = user.role
         session['dept_id']   = user.dept_id
+        session['user_dept_name'] = user.assigned_department.name if user.assigned_department else 'your Department'
 
         flash(f'Welcome back, {user.name}!', 'success')
         return redirect(url_for('auth.dashboard'))
@@ -375,6 +376,54 @@ def dashboard():
                 pending_maintenance=pending_maintenance,
                 pending_transfers=pending_transfers
             )
+    elif user_role == 'Department Head':
+        dept_id = session.get('dept_id')
+        
+        # Ensure user_dept_name is in session
+        if not session.get('user_dept_name'):
+            from app.models.user import Department
+            dept = Department.query.get(dept_id) if dept_id else None
+            session['user_dept_name'] = dept.name if dept else 'your Department'
+
+        # Fetch department assets
+        dept_assets = Asset.query.filter_by(dept_id=dept_id).all() if dept_id else []
+        dept_assets_count = len(dept_assets)
+
+        # Active allocations of department assets
+        dept_allocated_count = Allocation.query.join(Asset).filter(
+            Asset.dept_id == dept_id,
+            Allocation.is_active == True
+        ).count() if dept_id else 0
+
+        # Under maintenance
+        dept_maintenance_count = Asset.query.filter(
+            Asset.dept_id == dept_id,
+            Asset.status == 'Under Maintenance'
+        ).count() if dept_id else 0
+
+        # Pending department transfers
+        pending_transfers = Transfer.query.join(Asset).filter(
+            Asset.dept_id == dept_id,
+            Transfer.status == 'Pending'
+        ).all() if dept_id else []
+        pending_approvals_count = len(pending_transfers)
+
+        # Department bookings (bookings raised by employees in this department)
+        dept_bookings = ResourceBooking.query.join(Employee, ResourceBooking.user_id == Employee.id).filter(
+            Employee.dept_id == dept_id
+        ).all() if dept_id else []
+
+        return render_template(
+            'dept_dashboard.html',
+            now_hour=now_hour,
+            dept_assets_count=dept_assets_count,
+            dept_allocated_count=dept_allocated_count,
+            dept_maintenance_count=dept_maintenance_count,
+            pending_approvals_count=pending_approvals_count,
+            dept_assets=dept_assets,
+            dept_bookings=dept_bookings,
+            pending_transfers=pending_transfers
+        )
     else:
         # ── EMPLOYEE (PERSONAL) SCOPE ──
         my_allocations = Allocation.query.filter_by(employee_id=user_id, is_active=True).all()

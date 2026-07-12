@@ -18,14 +18,14 @@ def create_app():
     from app.routes.admin_routes import admin_bp
     #from app.routes.asset_routes import asset_bp
     #from app.routes.alloc_routes import alloc_bp
-    #from app.routes.booking_routes import booking_bp
+    from app.routes.booking_routes import booking_bp
     #from app.routes.audit_routes import audit_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     #app.register_blueprint(asset_bp, url_prefix='/assets')
     #app.register_blueprint(alloc_bp, url_prefix='/allocations')
-    #app.register_blueprint(booking_bp, url_prefix='/bookings')
+    app.register_blueprint(booking_bp, url_prefix='/bookings')
     #app.register_blueprint(audit_bp, url_prefix='/audits')
 
     # Root redirect — '/' → login page
