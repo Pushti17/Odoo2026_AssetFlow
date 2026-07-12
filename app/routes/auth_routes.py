@@ -1,143 +1,266 @@
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, render_template, redirect, url_for, flash, session
+from flask_wtf import FlaskForm
+from wtforms import StringField, EmailField, PasswordField
+from wtforms.validators import DataRequired, Email, Length, EqualTo
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.database import db
-from app.models.user import Employee  # Implemented under Developer A's tasks
+from app.models.user import Employee
 
-# 1. Define the Authentication Blueprint
+
+# ──────────────────────────────────────────
+# WTForms
+# ──────────────────────────────────────────
+
+class LoginForm(FlaskForm):
+    """Login form — email + password."""
+    email    = EmailField   ('Email',    validators=[DataRequired(), Email()])
+    password = PasswordField('Password', validators=[DataRequired(), Length(min=6)])
+
+
+class SignupForm(FlaskForm):
+    """Signup form — username, email, password + confirm."""
+    username         = StringField ('Username',
+                                    validators=[DataRequired(), Length(min=3, max=150)])
+    email            = EmailField  ('Email',
+                                    validators=[DataRequired(), Email()])
+    password         = PasswordField('Password',
+                                    validators=[DataRequired(), Length(min=6)])
+    confirm_password = PasswordField('Confirm Password',
+                                    validators=[
+                                        DataRequired(),
+                                        EqualTo('password', message='Passwords must match.')
+                                    ])
+
+
+class ForgotPasswordForm(FlaskForm):
+    """Forgot-password form — email lookup only."""
+    email = EmailField('Email', validators=[DataRequired(), Email()])
+
+
+class ResetPasswordForm(FlaskForm):
+    """Reset-password form — new password + confirm."""
+    password         = PasswordField('New Password',
+                                    validators=[DataRequired(), Length(min=6)])
+    confirm_password = PasswordField('Confirm Password',
+                                    validators=[
+                                        DataRequired(),
+                                        EqualTo('password', message='Passwords must match.')
+                                    ])
+
+
+# ──────────────────────────────────────────
+# Blueprint
+# ──────────────────────────────────────────
+
 auth_bp = Blueprint('auth', __name__)
 
-# ==========================================
-# 1. USER SIGNUP ENDPOINT
-# ==========================================
-@auth_bp.route('/signup', methods=['POST'])
+
+# ──────────────────────────────────────────
+# Helper — session guard decorator
+# ──────────────────────────────────────────
+
+def login_required(f):
+    """Redirect to /login if user is not authenticated."""
+    from functools import wraps
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('user_id'):
+            flash('Please log in to continue.', 'error')
+            return redirect(url_for('auth.login'))
+        return f(*args, **kwargs)
+    return decorated
+
+
+# ══════════════════════════════════════════
+# 1. SIGNUP  — GET shows form, POST registers
+# ══════════════════════════════════════════
+
+@auth_bp.route('/signup', methods=['GET', 'POST'])
 def signup():
     """
-    Registers a new user in the system.
-    CRITICAL ERP RULE: All custom signups default strictly to the 'Employee' role.
-    No role selection is allowed at signup to prevent self-elevation.
+    GET  → render signin.html with blank SignupForm.
+    POST → validate → hash password → persist Employee (role='Employee').
+    CRITICAL ERP RULE: role is locked to 'Employee' at registration.
     """
-    data = request.get_json() or {}
-    
-    name = data.get('name')
-    email = data.get('email')
-    password = data.get('password')
-    dept_id = data.get('dept_id')  # Optional during initial onboarding
+    if session.get('user_id'):
+        return redirect(url_for('auth.dashboard'))
 
-    # Basic input validation
-    if not name or not email or not password:
-        return jsonify({"error": "Name, email, and password are required fields."}), 400
+    form = SignupForm()
 
-    # Check if the email is already registered in the system
-    existing_employee = Employee.query.filter_by(email=email).first()
-    if existing_employee:
-        return jsonify({"error": "An account with this email already exists."}), 409
+    if form.validate_on_submit():
+        username = form.username.data.strip()
+        email    = form.email.data.strip().lower()
+        password = form.password.data
 
-    # Generate a secure salted password hash (Never store raw text)
-    hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+        # Guard: email must be unique across all employees
+        if Employee.query.filter_by(email=email).first():
+            flash('An account with this email already exists.', 'error')
+            return render_template('signin.html', form=form)
 
-    # Enforce default non-elevated role 'Employee'
-    new_user = Employee(
-        name=name,
-        email=email,
-        password_hash=hashed_password,
-        dept_id=dept_id,
-        role='Employee',  # Enforced business logic constraint
-        status='Active'   # Accounts are active by default upon creation
-    )
+        # Werkzeug — never store plain-text passwords
+        hashed = generate_password_hash(password, method='pbkdf2:sha256')
 
-    try:
-        db.session.add(new_user)
-        db.session.commit()
-        return jsonify({
-            "message": "Account created successfully as 'Employee'. Contact your Admin for role updates.",
-            "user_id": new_user.id
-        }), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": "Database error occurred during registration."}), 500
+        new_user = Employee(
+            name          = username,
+            email         = email,
+            password_hash = hashed,
+            role          = 'Employee',  # Enforced — no self-elevation allowed
+            status        = 'Active',
+        )
+
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            flash('Account created successfully! You can now log in.', 'success')
+            return redirect(url_for('auth.login'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Database error: {e}', 'error')
+
+    return render_template('signin.html', form=form)
 
 
-# ==========================================
-# 2. USER LOGIN ENDPOINT
-# ==========================================
-@auth_bp.route('/login', methods=['POST'])
+# ══════════════════════════════════════════
+# 2. LOGIN  — GET shows form, POST authenticates
+# ══════════════════════════════════════════
+
+@auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """
-    Authenticates an employee, verifies password hash, and stores state inside a secure session.
+    GET  → render login.html with blank LoginForm.
+    POST → validate → verify hash → populate Flask session → redirect dashboard.
     """
-    data = request.get_json() or {}
-    
-    email = data.get('email')
-    password = data.get('password')
+    if session.get('user_id'):
+        return redirect(url_for('auth.dashboard'))
 
-    if not email or not password:
-        return jsonify({"error": "Email and password are required."}), 400
+    form = LoginForm()
 
-    # Query the user from the database
-    user = Employee.query.filter_by(email=email).first()
+    if form.validate_on_submit():
+        email    = form.email.data.strip().lower()
+        password = form.password.data
 
-    # Safety rule: Verify user exists and check the cryptographic hash matches
-    if not user or not check_password_hash(user.password_hash, password):
-        return jsonify({"error": "Invalid email or password configuration."}), 401
+        user = Employee.query.filter_by(email=email).first()
 
-    # Check if the employee directory profile is marked active
-    if user.status != 'Active':
-        return jsonify({"error": "Your account profile has been deactivated. Contact an administrator."}), 403
+        # Werkzeug constant-time hash comparison
+        if not user or not check_password_hash(user.password_hash, password):
+            flash('Invalid email or password.', 'error')
+            return render_template('login.html', form=form)
 
-    # Initialize session validation parameters
-    session.clear()
-    session['user_id'] = user.id
-    session['user_name'] = user.name
-    session['user_role'] = user.role
-    session['dept_id'] = user.dept_id
+        if user.status != 'Active':
+            flash('Your account has been deactivated. Contact an administrator.', 'error')
+            return render_template('login.html', form=form)
 
-    return jsonify({
-        "message": f"Welcome back, {user.name}!",
-        "user": {
-            "id": user.id,
-            "name": user.name,
-            "email": user.email,
-            "role": user.role,
-            "dept_id": user.dept_id
-        }
-    }), 200
-
-
-# ==========================================
-# 3. USER LOGOUT ENDPOINT
-# ==========================================
-@auth_bp.route('/logout', methods=['POST'])
-def logout():
-    """
-    Clears the active session tokens, effectively logging out the user.
-    """
-    session.clear()
-    return jsonify({"message": "Logged out successfully. Session tokens cleared."}), 200
-
-
-# ==========================================
-# 4. SESSION AUTHENTICATION GUARD HELPER
-# ==========================================
-@auth_bp.route('/me', methods=['GET'])
-def get_current_user():
-    """
-    Helper endpoint for the frontend to check if the current browser session remains active.
-    """
-    user_id = session.get('user_id')
-    if not user_id:
-        return jsonify({"authenticated": False}), 401
-
-    user = Employee.query.get(user_id)
-    if not user or user.status != 'Active':
+        # Populate Flask session with identity data
         session.clear()
-        return jsonify({"authenticated": False}), 401
+        session['user_id']   = user.id
+        session['user_name'] = user.name
+        session['user_role'] = user.role
+        session['dept_id']   = user.dept_id
 
-    return jsonify({
-        "authenticated": True,
-        "user": {
-            "id": user.id,
-            "name": user.name,
-            "role": user.role,
-            "dept_id": user.dept_id
-        }
-    }), 200
+        flash(f'Welcome back, {user.name}!', 'success')
+        return redirect(url_for('auth.dashboard'))
+
+    return render_template('login.html', form=form)
+
+
+# ══════════════════════════════════════════
+# 3. LOGOUT
+# ══════════════════════════════════════════
+
+@auth_bp.route('/logout')
+def logout():
+    """Clear Flask session and redirect to login."""
+    session.clear()
+    flash('You have been logged out successfully.', 'success')
+    return redirect(url_for('auth.login'))
+
+
+# ══════════════════════════════════════════
+# 4. FORGOT PASSWORD
+# ══════════════════════════════════════════
+
+@auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """
+    GET  → render forgot_password.html with ForgotPasswordForm.
+    POST → validate email → if found, store email in session and redirect
+           to reset page (in production, this would send a reset email).
+    """
+    form = ForgotPasswordForm()
+
+    if form.validate_on_submit():
+        email = form.email.data.strip().lower()
+        user  = Employee.query.filter_by(email=email).first()
+
+        # Always show a success message to avoid user enumeration attacks
+        if user:
+            # In production: generate a secure token, email a reset link.
+            # Here we store the user_id in session for the reset step.
+            session['reset_user_id'] = user.id
+
+        flash(
+            'If that email is registered, a reset link has been sent. '
+            'Check your inbox.',
+            'success'
+        )
+        # Redirect to reset form only if user actually exists
+        if user:
+            return redirect(url_for('auth.reset_password'))
+        return redirect(url_for('auth.forgot_password'))
+
+    return render_template('forgot_password.html', form=form)
+
+
+# ══════════════════════════════════════════
+# 5. RESET PASSWORD
+# ══════════════════════════════════════════
+
+@auth_bp.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    """
+    GET  → render reset_password.html with ResetPasswordForm.
+    POST → validate → hash new password → update Employee record.
+    Requires 'reset_user_id' to be present in session (set by forgot_password).
+    """
+    reset_uid = session.get('reset_user_id')
+    if not reset_uid:
+        flash('Invalid or expired reset session. Please try again.', 'error')
+        return redirect(url_for('auth.forgot_password'))
+
+    form = ResetPasswordForm()
+
+    if form.validate_on_submit():
+        user = Employee.query.get(reset_uid)
+        if not user:
+            flash('User not found. Please try again.', 'error')
+            return redirect(url_for('auth.forgot_password'))
+
+        user.password_hash = generate_password_hash(
+            form.password.data, method='pbkdf2:sha256'
+        )
+
+        try:
+            db.session.commit()
+            session.pop('reset_user_id', None)  # Invalidate reset session
+            flash('Password updated successfully! You can now log in.', 'success')
+            return redirect(url_for('auth.login'))
+        except Exception:
+            db.session.rollback()
+            flash('A database error occurred. Please try again.', 'error')
+
+    return render_template('reset_password.html', form=form)
+
+
+# ══════════════════════════════════════════
+# 6. DASHBOARD  — session-guarded landing
+# ══════════════════════════════════════════
+
+@auth_bp.route('/dashboard')
+@login_required
+def dashboard():
+    """Session-guarded dashboard placeholder."""
+    return (
+        f"<h2>Welcome, {session['user_name']}!</h2>"
+        f"<p>Role: {session['user_role']}</p>"
+        f"<a href='{url_for('auth.logout')}'>Logout</a>"
+    )
