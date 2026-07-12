@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Create Account – AssetFlow</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="{{ url_for('static', filename='signin.css') }}">
+
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="logo">
+👤
+</div>
+
+<h2>Create Account</h2>
+
+<p class="subtitle">
+Create your account to get started
+</p>
+
+<!-- Flash messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="flash flash-{{ category }}">{{ message }}</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+<form method="POST" action="{{ url_for('auth.signup') }}">
+
+{{ form.hidden_tag() }}
+
+<div class="input-box">
+
+{{ form.username.label }}
+
+{{ form.username(
+    placeholder='Enter your username',
+    autocomplete='username'
+) }}
+
+{% if form.username.errors %}
+<span class="field-error">{{ form.username.errors[0] }}</span>
+{% endif %}
+
+</div>
+
+<div class="input-box">
+
+{{ form.email.label }}
+
+{{ form.email(
+    placeholder='Enter your email',
+    autocomplete='email'
+) }}
+
+{% if form.email.errors %}
+<span class="field-error">{{ form.email.errors[0] }}</span>
+{% endif %}
+
+</div>
+
+<div class="input-box">
+
+{{ form.password.label }}
+
+{{ form.password(
+    id='password',
+    placeholder='Create a password'
+) }}
+
+<span class="eye" onclick="togglePassword('password')">
+👁
+</span>
+
+{% if form.password.errors %}
+<span class="field-error">{{ form.password.errors[0] }}</span>
+{% endif %}
+
+</div>
+
+<div class="input-box">
+
+{{ form.confirm_password.label }}
+
+{{ form.confirm_password(
+    id='confirmPassword',
+    placeholder='Confirm your password'
+) }}
+
+<span class="eye" onclick="togglePassword('confirmPassword')">
+👁
+</span>
+
+{% if form.confirm_password.errors %}
+<span class="field-error">{{ form.confirm_password.errors[0] }}</span>
+{% endif %}
+
+</div>
+
+<button type="submit">
+Create Account
+</button>
+
+<div class="login">
+
+Already have an account?
+
+<a href="{{ url_for('auth.login') }}">
+Login
+</a>
+
+</div>
+
+</form>
+
+</div>
+
+<script>
+
+function togglePassword(id){
+
+const input=document.getElementById(id);
+
+if(input.type==="password"){
+    input.type="text";
+}
+else{
+    input.type="password";
+}
+
+}
+
+</script>
+
+</body>
+</html>
