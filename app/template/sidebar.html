@@ -1,0 +1,203 @@
+<!-- ═══════════════════════════════════════════════════
+     AssetFlow — Reusable Sidebar Partial
+     Include this in every dashboard page:
+       {% raw %}{% include 'sidebar.html' %}{% endraw %}
+     Role guard logic lives in auth_routes / decorators;
+     this file only hides nav items that a role cannot see.
+═══════════════════════════════════════════════════ -->
+
+
+{% set role = session.get('user_role', '') %}
+{% set page = request.endpoint %}
+
+<aside class="af-sidebar" id="afSidebar">
+
+    <!-- ── Brand ── -->
+    <div class="af-sidebar__brand">
+        <div class="af-sidebar__logo">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <path d="M8 21h8M12 17v4"/>
+            </svg>
+        </div>
+        <span class="af-sidebar__brand-name">AssetFlow</span>
+        <button class="af-sidebar__close" id="sidebarClose" aria-label="Close sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- ── Role badge ── -->
+    <div class="af-sidebar__role-badge">
+        <span class="af-sidebar__role-dot"></span>
+        {{ role }}
+    </div>
+
+    <!-- ── Navigation ── -->
+    <nav class="af-sidebar__nav">
+
+        <!-- 2. Dashboard – all roles -->
+        <a href="{{ url_for('auth.dashboard') }}"
+           class="af-sidebar__item {% if page == 'auth.dashboard' %}af-sidebar__item--active{% endif %}"
+           id="nav-dashboard">
+            <svg class="af-sidebar__icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="9" rx="1"/>
+                <rect x="14" y="3" width="7" height="5" rx="1"/>
+                <rect x="14" y="12" width="7" height="9" rx="1"/>
+                <rect x="3" y="16" width="7" height="5" rx="1"/>
+            </svg>
+            <span>Dashboard</span>
+        </a>
+
+        <!-- 3. Organization Setup – Admin only -->
+        {% if role == 'Admin' %}
+        <a href="{{ url_for('admin.org_setup') }}"
+           class="af-sidebar__item {% if page == 'admin.org_setup' %}af-sidebar__item--active{% endif %}"
+           id="nav-org-setup">
+            <svg class="af-sidebar__icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+                <path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>
+            </svg>
+            <span>Organisation Setup</span>
+        </a>
+        {% endif %}
+
+        <!-- 4. Asset Directory – Admin, Asset Manager (full); Dept Head, Employee (read-only) -->
+        {% if role in ['Admin', 'Asset Manager', 'Department Head', 'Employee'] %}
+        <a href="#"
+           class="af-sidebar__item {% if page == 'asset.index' %}af-sidebar__item--active{% endif %}"
+           id="nav-assets">
+            <svg class="af-sidebar__icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                <line x1="12" y1="22.08" x2="12" y2="12"/>
+            </svg>
+            <span>Asset Directory</span>
+            {% if role == 'Employee' %}
+            <span class="af-sidebar__badge af-sidebar__badge--info">Read-only</span>
+            {% endif %}
+        </a>
+        {% endif %}
+
+        <!-- 5. Allocation & Transfer -->
+        {% if role in ['Admin', 'Asset Manager', 'Department Head', 'Employee'] %}
+        <a href="#"
+           class="af-sidebar__item {% if page == 'alloc.index' %}af-sidebar__item--active{% endif %}"
+           id="nav-allocation">
+            <svg class="af-sidebar__icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="17 1 21 5 17 9"/>
+                <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+                <polyline points="7 23 3 19 7 15"/>
+                <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+            </svg>
+            <span>Allocation &amp; Transfer</span>
+        </a>
+        {% endif %}
+
+        <!-- 6. Resource Booking – all roles -->
+        <a href="#"
+           class="af-sidebar__item {% if page == 'booking.index' %}af-sidebar__item--active{% endif %}"
+           id="nav-booking">
+            <svg class="af-sidebar__icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span>Resource Booking</span>
+        </a>
+
+        <!-- 7. Maintenance -->
+        {% if role in ['Admin', 'Asset Manager', 'Department Head', 'Employee'] %}
+        <a href="#"
+           class="af-sidebar__item {% if page == 'audit.maintenance' %}af-sidebar__item--active{% endif %}"
+           id="nav-maintenance">
+            <svg class="af-sidebar__icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
+            <span>Maintenance</span>
+        </a>
+        {% endif %}
+
+        <!-- 8. Audit – Admin, Asset Manager, Employee (if assigned); hidden for Dept Head -->
+        {% if role in ['Admin', 'Asset Manager', 'Employee'] %}
+        <a href="#"
+           class="af-sidebar__item {% if page == 'audit.index' %}af-sidebar__item--active{% endif %}"
+           id="nav-audit">
+            <svg class="af-sidebar__icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 11l3 3L22 4"/>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            <span>Audit</span>
+        </a>
+        {% endif %}
+
+        <!-- 9. Reports & Analytics – Admin, Asset Manager, Dept Head; hidden Employee v1 -->
+        {% if role in ['Admin', 'Asset Manager', 'Department Head'] %}
+        <a href="#"
+           class="af-sidebar__item {% if page == 'admin.reports' %}af-sidebar__item--active{% endif %}"
+           id="nav-reports">
+            <svg class="af-sidebar__icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+            <span>Reports &amp; Analytics</span>
+        </a>
+        {% endif %}
+
+        <!-- 10. Notifications & Logs – all roles -->
+        <a href="#"
+           class="af-sidebar__item {% if page == 'admin.notifications' %}af-sidebar__item--active{% endif %}"
+           id="nav-notifications">
+            <svg class="af-sidebar__icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            <span>Notifications</span>
+            <span class="af-sidebar__badge af-sidebar__badge--alert" id="notifBadge">3</span>
+        </a>
+
+    </nav>
+
+    <!-- ── Sidebar footer: logout ── -->
+    <div class="af-sidebar__footer">
+        <div class="af-sidebar__user">
+            <div class="af-sidebar__avatar">
+                {{ session.get('user_name', 'U')[0].upper() }}
+            </div>
+            <div class="af-sidebar__user-info">
+                <span class="af-sidebar__user-name">{{ session.get('user_name', 'User') }}</span>
+                <span class="af-sidebar__user-role">{{ role }}</span>
+            </div>
+        </div>
+        <a href="{{ url_for('auth.logout') }}" class="af-sidebar__logout" title="Logout">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+        </a>
+    </div>
+
+</aside>
+
+<!-- ── Mobile overlay ── -->
+<div class="af-sidebar__overlay" id="sidebarOverlay"></div>

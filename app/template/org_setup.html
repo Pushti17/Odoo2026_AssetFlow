@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organisation Setup – AssetFlow</title>
+    <meta name="description" content="AssetFlow Organisation Setup — Manage departments, categories, and employee directory roles.">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <style>
+        /* Tab Navigation */
+        .af-tabs-nav {
+            display: flex;
+            gap: 8px;
+            border-bottom: 1.5px solid rgba(99,102,241,.12);
+            padding-bottom: 2px;
+            margin-bottom: 20px;
+        }
+        .af-tab-link {
+            padding: 10px 20px;
+            border-radius: 12px 12px 0 0;
+            background: none;
+            border: none;
+            font-family: inherit;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--af-text-muted);
+            cursor: pointer;
+            transition: all .2s;
+            position: relative;
+        }
+        .af-tab-link:hover {
+            color: var(--af-indigo);
+            background: rgba(99,102,241,.04);
+        }
+        .af-tab-link.active {
+            color: var(--af-indigo);
+            background: rgba(99,102,241,.06);
+        }
+        .af-tab-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2.5px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--af-indigo);
+            border-radius: 3px 3px 0 0;
+        }
+
+        .af-tab-panel {
+            display: none;
+            animation: fadeIn .3s ease-in-out;
+        }
+        .af-tab-panel.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Two columns layout within tabs: Left=List, Right=Add Form */
+        .org-split-grid {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+            align-items: start;
+        }
+        @media (max-width: 992px) {
+            .org-split-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Modal Overlay & Card styling */
+        .af-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.35);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+            animation: fadeInOverlay .2s ease;
+        }
+        @keyframes fadeInOverlay {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .af-modal-card {
+            background: var(--af-surface);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--af-border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 440px;
+            padding: 30px;
+            box-shadow: 0 24px 60px rgba(0,0,0,.15);
+            position: relative;
+        }
+
+        .af-modal-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--af-text);
+            margin-bottom: 20px;
+        }
+
+        /* Forms styling matching login card inputs */
+        .af-field-group {
+            margin-bottom: 16px;
+        }
+        .af-field-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--af-text-muted);
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .af-form-input, .af-form-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            outline: none;
+            border-radius: 12px;
+            background: #f5f7fb;
+            font-family: inherit;
+            font-size: 14.5px;
+            box-shadow:
+                inset 2px 2px 5px rgba(0,0,0,.04),
+                inset -2px -2px 5px rgba(255,255,255,.7);
+            transition: box-shadow .2s;
+        }
+        .af-form-input:focus, .af-form-select:focus {
+            box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+        }
+
+        .af-btn-pill {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 50px;
+            background: var(--af-indigo);
+            color: white;
+            font-family: inherit;
+            font-size: 14.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: .2s;
+            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(99,102,241,.2);
+        }
+        .af-btn-pill:hover {
+            background: var(--af-indigo-d);
+            transform: translateY(-1.5px);
+        }
+
+        .af-btn-secondary {
+            background: rgba(99,102,241,.06);
+            color: var(--af-indigo);
+            box-shadow: none;
+        }
+        .af-btn-secondary:hover {
+            background: rgba(99,102,241,.12);
+        }
+
+        .af-modal-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--af-text-muted);
+            padding: 4px;
+            border-radius: 8px;
+        }
+        .af-modal-close-btn:hover { background: rgba(99,102,241,.08); }
+    </style>
+</head>
+<body>
+
+<div class="af-layout">
+
+    <!-- ── Sidebar include ── -->
+    {% include 'sidebar.html' %}
+
+    <div class="af-main">
+
+        <!-- ── Top-bar ── -->
+        <header class="af-topbar">
+            <button class="af-topbar__hamburger" id="sidebarToggle" aria-label="Toggle sidebar">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
+
+            <div class="af-topbar__breadcrumb">
+                <span class="af-topbar__breadcrumb-parent">AssetFlow</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+                <span class="af-topbar__breadcrumb-current">Organisation Setup</span>
+            </div>
+
+            <div class="af-topbar__actions">
+                <div class="af-topbar__avatar">
+                    {{ session.get('user_name', 'A')[0].upper() }}
+                </div>
+            </div>
+        </header>
+
+        <!-- ── Page body ── -->
+        <main class="af-page">
+
+            <!-- Flash notifications -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="af-flash af-flash--{{ category }}" style="margin-bottom:15px;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <section class="af-dashboard__hero" style="margin-bottom: 5px;">
+                <div class="af-dashboard__hero-text">
+                    <h1 class="af-dashboard__title">Organisation Setup Master</h1>
+                    <p class="af-dashboard__subtitle">Maintain the master records that fuel user and asset workflows.</p>
+                </div>
+            </section>
+
+            <!-- Tabs Navigation -->
+            <div class="af-tabs-nav">
+                <button class="af-tab-link {% if active_tab == 'departments' %}active{% endif %}" onclick="switchTab('departments')">
+                    Departments
+                </button>
+                <button class="af-tab-link {% if active_tab == 'categories' %}active{% endif %}" onclick="switchTab('categories')">
+                    Asset Categories
+                </button>
+                <button class="af-tab-link {% if active_tab == 'employees' %}active{% endif %}" onclick="switchTab('employees')">
+                    Employee Directory
+                </button>
+            </div>
+
+            <!-- ══════════════════════════════════════
+                 TAB A: DEPARTMENTS PANEL
+            ══════════════════════════════════════ -->
+            <div class="af-tab-panel {% if active_tab == 'departments' %}active{% endif %}" id="tab-departments">
+                <div class="org-split-grid">
+                    
+                    <!-- Departments list -->
+                    <div class="af-panel">
+                        <div class="af-panel__header">
+                            <h2 class="af-panel__title">Departments</h2>
+                        </div>
+                        <div class="af-table-wrap">
+                            {% if departments %}
+                            <table class="af-table">
+                                <thead>
+                                    <tr>
+                                        <th>Code</th>
+                                        <th>Department Name</th>
+                                        <th>Manager / Head</th>
+                                        <th>Parent Dept</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for dept in departments %}
+                                    <tr>
+                                        <td><strong>{{ dept.code }}</strong></td>
+                                        <td>{{ dept.name }}</td>
+                                        <td>{{ dept.department_head.name if dept.department_head else 'Not Assigned' }}</td>
+                                        <td>{{ dept.parent_department.name if dept.parent_department else 'None' }}</td>
+                                        <td>
+                                            <span class="af-status {% if dept.status == 'Active' %}af-status--approved{% else %}af-status--rejected{% endif %}">
+                                                {{ dept.status }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button class="af-btn-approve" onclick="openEditDeptModal('{{ dept.id }}', '{{ dept.name }}', '{{ dept.parent_dept_id }}', '{{ dept.head_id }}', '{{ dept.status }}')">
+                                                Edit
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% else %}
+                            <div style="padding: 24px; text-align: center; color: var(--af-text-muted);">
+                                No departments created. Add one on the right panel.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Create Department Form Panel -->
+                    <div class="af-panel">
+                        <div class="af-panel__header">
+                            <h2 class="af-panel__title">Create Department</h2>
+                        </div>
+                        <form method="POST">
+                            <input type="hidden" name="action" value="add_department">
+                            
+                            <div class="af-field-group">
+                                <label for="dept-name">Department Name</label>
+                                <input type="text" id="dept-name" name="name" class="af-form-input" placeholder="e.g. Engineering" required>
+                            </div>
+
+                            <div class="af-field-group">
+                                <label for="dept-code">Department Code</label>
+                                <input type="text" id="dept-code" name="code" class="af-form-input" placeholder="e.g. DEPT-ENG" required>
+                            </div>
+
+                            <div class="af-field-group">
+                                <label for="dept-parent">Parent Department</label>
+                                <select id="dept-parent" name="parent_dept_id" class="af-form-select">
+                                    <option value="None">None (Root Dept)</option>
+                                    {% for d in active_depts %}
+                                    <option value="{{ d.id }}">{{ d.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="af-field-group">
+                                <label for="dept-head">Department Head</label>
+                                <select id="dept-head" name="head_id" class="af-form-select">
+                                    <option value="None">Not Assigned</option>
+                                    {% for e in active_employees %}
+                                    <option value="{{ e.id }}">{{ e.name }} ({{ e.email }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="af-field-group">
+                                <label for="dept-status">Status</label>
+                                <select id="dept-status" name="status" class="af-form-select">
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                </select>
+                            </div>
+
+                            <button type="submit" class="af-btn-pill">Create Department</button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════
+                 TAB B: ASSET CATEGORIES PANEL
+            ══════════════════════════════════════ -->
+            <div class="af-tab-panel {% if active_tab == 'categories' %}active{% endif %}" id="tab-categories">
+                <div class="org-split-grid">
+                    
+                    <!-- Categories list -->
+                    <div class="af-panel">
+                        <div class="af-panel__header">
+                            <h2 class="af-panel__title">Asset Categories</h2>
+                        </div>
+                        <div class="af-table-wrap">
+                            {% if categories %}
+                            <table class="af-table">
+                                <thead>
+                                    <tr>
+                                        <th>Category ID</th>
+                                        <th>Category Name</th>
+                                        <th>Warranty Period</th>
+                                        <th>Created Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for cat in categories %}
+                                    <tr>
+                                        <td><strong>CAT-{{ cat.id }}</strong></td>
+                                        <td>{{ cat.name }}</td>
+                                        <td>{{ cat.warranty_period_months ~ ' months' if cat.warranty_period_months else 'Not Defined' }}</td>
+                                        <td>{{ cat.created_at.strftime('%d-%b-%Y') }}</td>
+                                        <td>
+                                            <button class="af-btn-approve" onclick="openEditCatModal('{{ cat.id }}', '{{ cat.name }}', '{{ cat.warranty_period_months or '' }}')">
+                                                Edit
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% else %}
+                            <div style="padding: 24px; text-align: center; color: var(--af-text-muted);">
+                                No categories created. Add one on the right panel.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Create Category Form Panel -->
+                    <div class="af-panel">
+                        <div class="af-panel__header">
+                            <h2 class="af-panel__title">Create Category</h2>
+                        </div>
+                        <form method="POST">
+                            <input type="hidden" name="action" value="add_category">
+
+                            <div class="af-field-group">
+                                <label for="cat-name">Category Name</label>
+                                <input type="text" id="cat-name" name="name" class="af-form-input" placeholder="e.g. Electronics" required>
+                            </div>
+
+                            <div class="af-field-group">
+                                <label for="cat-warranty">Warranty Period (months)</label>
+                                <input type="number" id="cat-warranty" name="warranty_period_months" class="af-form-input" placeholder="e.g. 24 (Optional)">
+                            </div>
+
+                            <button type="submit" class="af-btn-pill">Create Category</button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════
+                 TAB C: EMPLOYEE DIRECTORY
+            ══════════════════════════════════════ -->
+            <div class="af-tab-panel {% if active_tab == 'employees' %}active{% endif %}" id="tab-employees">
+                <div class="af-panel">
+                    <div class="af-panel__header">
+                        <h2 class="af-panel__title">Employee Directory (Role Assignment &amp; Management)</h2>
+                    </div>
+                    <div class="af-table-wrap">
+                        {% if employees %}
+                        <table class="af-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Department</th>
+                                    <th>System Role</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for emp in employees %}
+                                <tr>
+                                    <td><strong>{{ emp.name }}</strong></td>
+                                    <td>{{ emp.email }}</td>
+                                    <td>{{ emp.assigned_department.name if emp.assigned_department else 'Unassigned' }}</td>
+                                    <td>
+                                        {% if emp.role == 'Admin' %}
+                                        <span class="af-tag af-tag--rose">{{ emp.role }}</span>
+                                        {% elif emp.role == 'Asset Manager' %}
+                                        <span class="af-tag af-tag--amber">{{ emp.role }}</span>
+                                        {% elif emp.role == 'Department Head' %}
+                                        <span class="af-tag af-tag--indigo">{{ emp.role }}</span>
+                                        {% else %}
+                                        <span class="af-tag af-tag--indigo" style="background: #eef2ff; color: #4f46e5;">{{ emp.role }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="af-status {% if emp.status == 'Active' %}af-status--approved{% else %}af-status--rejected{% endif %}">
+                                            {{ emp.status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="af-btn-approve" onclick="openEditEmpModal('{{ emp.id }}', '{{ emp.name }}', '{{ emp.dept_id or 'None' }}', '{{ emp.role }}', '{{ emp.status }}')">
+                                            Manage Role
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div style="padding: 24px; text-align: center; color: var(--af-text-muted);">
+                            No employees onboarded in system directory.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     EDIT DEPARTMENT MODAL
+══════════════════════════════════════ -->
+<div class="af-modal-overlay" id="editDeptModal">
+    <div class="af-modal-card">
+        <button class="af-modal-close-btn" onclick="closeModal('editDeptModal')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <h3 class="af-modal-title">Edit Department</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="edit_department">
+            <input type="hidden" id="edit-dept-id" name="dept_id">
+
+            <div class="af-field-group">
+                <label for="edit-dept-name">Department Name</label>
+                <input type="text" id="edit-dept-name" name="name" class="af-form-input" required>
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-dept-parent">Parent Department</label>
+                <select id="edit-dept-parent" name="parent_dept_id" class="af-form-select">
+                    <option value="None">None</option>
+                    {% for d in active_depts %}
+                    <option value="{{ d.id }}">{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-dept-head">Department Head</label>
+                <select id="edit-dept-head" name="head_id" class="af-form-select">
+                    <option value="None">Not Assigned</option>
+                    {% for e in active_employees %}
+                    <option value="{{ e.id }}">{{ e.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-dept-status">Status</label>
+                <select id="edit-dept-status" name="status" class="af-form-select">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                </select>
+            </div>
+
+            <button type="submit" class="af-btn-pill">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     EDIT CATEGORY MODAL
+══════════════════════════════════════ -->
+<div class="af-modal-overlay" id="editCatModal">
+    <div class="af-modal-card">
+        <button class="af-modal-close-btn" onclick="closeModal('editCatModal')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <h3 class="af-modal-title">Edit Category</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="edit_category">
+            <input type="hidden" id="edit-cat-id" name="cat_id">
+
+            <div class="af-field-group">
+                <label for="edit-cat-name">Category Name</label>
+                <input type="text" id="edit-cat-name" name="name" class="af-form-input" required>
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-cat-warranty">Warranty Period (months)</label>
+                <input type="number" id="edit-cat-warranty" name="warranty_period_months" class="af-form-input" placeholder="Optional">
+            </div>
+
+            <button type="submit" class="af-btn-pill">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     EDIT EMPLOYEE ROLE MODAL
+══════════════════════════════════════ -->
+<div class="af-modal-overlay" id="editEmpModal">
+    <div class="af-modal-card">
+        <button class="af-modal-close-btn" onclick="closeModal('editEmpModal')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <h3 class="af-modal-title">Manage Employee Role</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="edit_employee">
+            <input type="hidden" id="edit-emp-id" name="employee_id">
+
+            <div class="af-field-group">
+                <label>Employee Name</label>
+                <input type="text" id="edit-emp-name" class="af-form-input" style="background:#eef2ff; color:#777; cursor:not-allowed;" readonly>
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-emp-dept">Assigned Department</label>
+                <select id="edit-emp-dept" name="dept_id" class="af-form-select">
+                    <option value="None">None / External</option>
+                    {% for d in active_depts %}
+                    <option value="{{ d.id }}">{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-emp-role">System Role</label>
+                <select id="edit-emp-role" name="role" class="af-form-select">
+                    <option value="Employee">Employee</option>
+                    <option value="Department Head">Department Head</option>
+                    <option value="Asset Manager">Asset Manager</option>
+                    <option value="Admin">Admin</option>
+                </select>
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-emp-status">Status</label>
+                <select id="edit-emp-status" name="status" class="af-form-select">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                </select>
+            </div>
+
+            <button type="submit" class="af-btn-pill">Save Employee Profile</button>
+        </form>
+    </div>
+</div>
+
+<script>
+// Tab Swapper
+function switchTab(tabId) {
+    // Update Tab buttons
+    document.querySelectorAll('.af-tab-link').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    // Find matching button
+    event.currentTarget.classList.add('active');
+
+    // Update tab panels
+    document.querySelectorAll('.af-tab-panel').forEach(panel => {
+        panel.classList.remove('active');
+    });
+    document.getElementById('tab-' + tabId).classList.add('active');
+
+    // Update query parameter URL (for tab preservation on reload)
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tabId);
+    window.history.pushState({}, '', url);
+}
+
+// Modal open/close helpers
+function openModal(id) {
+    document.getElementById(id).style.display = 'flex';
+}
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
+// Edit Department populate
+function openEditDeptModal(id, name, parentId, headId, status) {
+    document.getElementById('edit-dept-id').value = id;
+    document.getElementById('edit-dept-name').value = name;
+    
+    const parentSelect = document.getElementById('edit-dept-parent');
+    parentSelect.value = parentId ? parentId : 'None';
+
+    const headSelect = document.getElementById('edit-dept-head');
+    headSelect.value = headId ? headId : 'None';
+
+    document.getElementById('edit-dept-status').value = status;
+    openModal('editDeptModal');
+}
+
+// Edit Category populate
+function openEditCatModal(id, name, warranty) {
+    document.getElementById('edit-cat-id').value = id;
+    document.getElementById('edit-cat-name').value = name;
+    document.getElementById('edit-cat-warranty').value = warranty;
+    openModal('editCatModal');
+}
+
+// Edit Employee populate
+function openEditEmpModal(id, name, deptId, role, status) {
+    document.getElementById('edit-emp-id').value = id;
+    document.getElementById('edit-emp-name').value = name;
+    
+    const deptSelect = document.getElementById('edit-emp-dept');
+    deptSelect.value = (deptId && deptId !== 'None') ? deptId : 'None';
+    
+    document.getElementById('edit-emp-role').value = role;
+    document.getElementById('edit-emp-status').value = status;
+    openModal('editEmpModal');
+}
+
+// Sidebar toggle mobile
+const sidebar = document.getElementById('afSidebar');
+const overlay = document.getElementById('sidebarOverlay');
+const toggle = document.getElementById('sidebarToggle');
+const closeBtn = document.getElementById('sidebarClose');
+
+function openSidebar() { sidebar.classList.add('is-open'); overlay.classList.add('is-visible'); }
+function closeSidebar() { sidebar.classList.remove('is-open'); overlay.classList.remove('is-visible'); }
+
+if (toggle) toggle.addEventListener('click', openSidebar);
+if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+if (overlay) overlay.addEventListener('click', closeSidebar);
+</script>
+
+</body>
+</html>
