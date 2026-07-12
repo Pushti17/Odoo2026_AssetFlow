@@ -65,3 +65,39 @@ class AuditItem(db.Model):
 
     auditor = db.relationship('Employee', backref='audited_items')
     asset = db.relationship('Asset', backref='audit_logs')
+
+
+class Notification(db.Model):
+    """
+    Tracks notifications sent to employees or departments.
+    """
+    __tablename__ = 'notifications'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=True) # Target employee
+    dept_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True) # Scoped department
+    
+    title = db.Column(db.String(150), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    notification_type = db.Column(db.String(50), nullable=False) # e.g. Asset Assigned, Maintenance Approved, etc.
+    
+    is_read = db.Column(db.Boolean, default=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('Employee', backref='user_notifications')
+    department = db.relationship('Department', backref='dept_notifications')
+
+
+class AuditLog(db.Model):
+    """
+    Centrally logs all system, admin, manager and employee actions.
+    """
+    __tablename__ = 'audit_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=True) # Who performed the action
+    action = db.Column(db.String(255), nullable=False)
+    ip_address = db.Column(db.String(45), default='127.0.0.1')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('Employee', backref='performed_logs')

@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Registry Directory – AssetFlow</title>
+    <meta name="description" content="AssetFlow centralised asset directory search and registration.">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <style>
+        .org-split-grid {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+            align-items: start;
+        }
+        @media (max-width: 992px) {
+            .org-split-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Filter header styling */
+        .filter-bar {
+            background: var(--af-surface);
+            backdrop-filter: blur(18px);
+            border: 1px solid var(--af-border);
+            border-radius: 16px;
+            padding: 16px 20px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .filter-bar form {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+
+        .filter-input {
+            padding: 8px 14px;
+            border: none;
+            outline: none;
+            border-radius: 10px;
+            background: #f5f7fb;
+            font-family: inherit;
+            font-size: 13px;
+            box-shadow: inset 1px 1px 3px rgba(0,0,0,.04);
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .filter-select {
+            padding: 8px 14px;
+            border: none;
+            outline: none;
+            border-radius: 10px;
+            background: #f5f7fb;
+            font-family: inherit;
+            font-size: 13px;
+            box-shadow: inset 1px 1px 3px rgba(0,0,0,.04);
+            min-width: 130px;
+        }
+
+        .btn-filter-submit {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 50px;
+            background: var(--af-indigo);
+            color: white;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-filter-submit:hover {
+            background: var(--af-indigo-d);
+        }
+
+        /* Fields form */
+        .af-field-group {
+            margin-bottom: 16px;
+        }
+        .af-field-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--af-text-muted);
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .af-form-input, .af-form-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            outline: none;
+            border-radius: 12px;
+            background: #f5f7fb;
+            font-family: inherit;
+            font-size: 14.5px;
+            box-shadow:
+                inset 2px 2px 5px rgba(0,0,0,.04),
+                inset -2px -2px 5px rgba(255,255,255,.7);
+            transition: box-shadow .2s;
+        }
+        .af-form-input:focus, .af-form-select:focus {
+            box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+        }
+
+        .af-btn-pill {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 50px;
+            background: var(--af-indigo);
+            color: white;
+            font-family: inherit;
+            font-size: 14.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: .2s;
+            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(99,102,241,.2);
+        }
+        .af-btn-pill:hover {
+            background: var(--af-indigo-d);
+            transform: translateY(-1.5px);
+        }
+
+        /* Modal styling */
+        .af-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.35);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+        }
+        .af-modal-card {
+            background: var(--af-surface);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--af-border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 460px;
+            padding: 30px;
+            box-shadow: 0 24px 60px rgba(0,0,0,.15);
+            position: relative;
+        }
+        .af-modal-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--af-text);
+            margin-bottom: 20px;
+        }
+        .af-modal-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--af-text-muted);
+            padding: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="af-layout">
+
+    <!-- ── Sidebar include ── -->
+    {% include 'sidebar.html' %}
+
+    <div class="af-main">
+
+        <!-- ── Top-bar ── -->
+        <header class="af-topbar">
+            <button class="af-topbar__hamburger" id="sidebarToggle" aria-label="Toggle sidebar">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
+
+            <div class="af-topbar__breadcrumb">
+                <span class="af-topbar__breadcrumb-parent">AssetFlow</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+                <span class="af-topbar__breadcrumb-current">
+                    {% if role == 'Employee' %}My Assets{% else %}Asset Registry Directory{% endif %}
+                </span>
+            </div>
+
+            <div class="af-topbar__actions">
+                <div class="af-topbar__avatar">
+                    {{ session.get('user_name', 'A')[0].upper() }}
+                </div>
+            </div>
+        </header>
+
+        <!-- ── Page body ── -->
+        <main class="af-page">
+
+            <!-- Flash notifications -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="af-flash af-flash--{{ category }}" style="margin-bottom: 15px;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <section class="af-dashboard__hero" style="margin-bottom: 5px;">
+                <div class="af-dashboard__hero-text">
+                    <h1 class="af-dashboard__title">
+                        {% if role == 'Employee' %}My Assets Directory{% else %}Asset Registry &amp; Directory{% endif %}
+                    </h1>
+                    <p class="af-dashboard__subtitle">
+                        Search, track lifecycle status and review detailed history records centrally.
+                    </p>
+                </div>
+            </section>
+
+            <!-- ── Search & Filter Bar ── -->
+            <div class="filter-bar">
+                <form method="GET" action="{{ url_for('asset.index') }}">
+                    <input type="text" name="q" value="{{ q }}" placeholder="Search by tag, serial, name..." class="filter-input">
+                    
+                    <select name="category" class="filter-select">
+                        <option value="">All Categories</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.id }}" {% if cat_filter == cat.id|string %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <select name="status" class="filter-select">
+                        <option value="">All Statuses</option>
+                        <option value="Available" {% if status_filter == 'Available' %}selected{% endif %}>Available</option>
+                        <option value="Allocated" {% if status_filter == 'Allocated' %}selected{% endif %}>Allocated</option>
+                        <option value="Reserved" {% if status_filter == 'Reserved' %}selected{% endif %}>Reserved</option>
+                        <option value="Under Maintenance" {% if status_filter == 'Under Maintenance' %}selected{% endif %}>Under Maintenance</option>
+                        <option value="Lost" {% if status_filter == 'Lost' %}selected{% endif %}>Lost</option>
+                        <option value="Retired" {% if status_filter == 'Retired' %}selected{% endif %}>Retired</option>
+                        <option value="Disposed" {% if status_filter == 'Disposed' %}selected{% endif %}>Disposed</option>
+                    </select>
+
+                    <input type="text" name="location" value="{{ location_filter }}" placeholder="Location..." class="filter-input" style="max-width: 150px;">
+
+                    <button type="submit" class="btn-filter-submit">Filter</button>
+                    <a href="{{ url_for('asset.index') }}" class="btn-filter-submit" style="background:#eef2ff; color:var(--af-indigo); display:flex; align-items:center; justify-content:center; text-decoration:none;">Reset</a>
+                </form>
+            </div>
+
+            <!-- Main Layout Split -->
+            <div class="{% if role in ['Admin', 'Asset Manager'] %}org-split-grid{% else %}af-panel{% endif %}">
+                
+                <!-- Assets Grid Table -->
+                <div class="af-panel">
+                    <div class="af-panel__header">
+                        <h2 class="af-panel__title">Registered Assets</h2>
+                    </div>
+                    <div class="af-table-wrap">
+                        {% if assets %}
+                        <table class="af-table">
+                            <thead>
+                                <tr>
+                                    <th>Tag</th>
+                                    <th>Asset Name</th>
+                                    <th>Category</th>
+                                    {% if role != 'Employee' %}
+                                    <th>Serial Number</th>
+                                    <th>Acq. Cost</th>
+                                    {% endif %}
+                                    <th>Location</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for asset in assets %}
+                                <tr>
+                                    <td><strong>{{ asset.asset_tag }}</strong></td>
+                                    <td>{{ asset.name }}</td>
+                                    <td>{{ asset.category.name }}</td>
+                                    {% if role != 'Employee' %}
+                                    <td>{{ asset.serial_number or '-' }}</td>
+                                    <td>{{ '₹' ~ '{:,.2f}'.format(asset.acquisition_cost) if asset.acquisition_cost else '-' }}</td>
+                                    {% endif %}
+                                    <td>{{ asset.location or '-' }}</td>
+                                    <td>
+                                        <span class="af-status 
+                                            {% if asset.status == 'Available' %}af-status--approved
+                                            {% elif asset.status == 'Allocated' or asset.status == 'Reserved' %}af-status--review
+                                            {% elif asset.status == 'Under Maintenance' %}af-status--pending
+                                            {% else %}af-status--rejected{% endif %}">
+                                            {{ asset.status }}
+                                        </span>
+                                    </td>
+                                    <td class="af-table__actions">
+                                        <a href="{{ url_for('asset.details', id=asset.id) }}" class="af-btn-approve" style="text-decoration:none; display:inline-block; text-align:center;">
+                                            Details
+                                        </a>
+                                        {% if role in ['Admin', 'Asset Manager'] %}
+                                        <button class="af-btn-approve" style="background: rgba(99,102,241,.1); color: var(--af-indigo);"
+                                                onclick="openEditModal('{{ asset.id }}', '{{ asset.name }}', '{{ asset.category_id }}', '{{ asset.serial_number or '' }}', '{{ asset.acquisition_date or '' }}', '{{ asset.acquisition_cost or '' }}', '{{ asset.condition }}', '{{ asset.location or '' }}', '{{ asset.is_bookable }}', '{{ asset.photo_url or '' }}', '{{ asset.depreciation_rate }}')">
+                                            Edit
+                                        </button>
+                                        <button class="af-btn-reject" onclick="openRetireModal('{{ asset.id }}', '{{ asset.asset_tag }}')">
+                                            Retire
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div style="padding: 24px; text-align: center; color: var(--af-text-muted);">
+                            No assets registered matching criteria.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Registration Panel (Admin / Asset Manager only) -->
+                {% if role in ['Admin', 'Asset Manager'] %}
+                <div class="af-panel">
+                    <div class="af-panel__header">
+                        <h2 class="af-panel__title">Register Asset</h2>
+                    </div>
+                    <form method="POST">
+                        <div class="af-field-group">
+                            <label for="reg-name">Asset Name</label>
+                            <input type="text" id="reg-name" name="name" class="af-form-input" placeholder="e.g. MacBook Pro 16" required>
+                        </div>
+
+                        <div class="af-field-group">
+                            <label for="reg-cat">Category</label>
+                            <select id="reg-cat" name="category_id" class="af-form-select" required>
+                                <option value="">Select category...</option>
+                                {% for cat in categories %}
+                                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="af-field-group">
+                            <label for="reg-serial">Serial Number</label>
+                            <input type="text" id="reg-serial" name="serial_number" class="af-form-input" placeholder="e.g. SN12984920">
+                        </div>
+
+                        <div class="af-field-group">
+                            <label for="reg-date">Acquisition Date</label>
+                            <input type="date" id="reg-date" name="acquisition_date" class="af-form-input">
+                        </div>
+
+                        <div class="af-field-group">
+                            <label for="reg-cost">Acquisition Cost (₹)</label>
+                            <input type="number" step="0.01" id="reg-cost" name="acquisition_cost" class="af-form-input" placeholder="e.g. 150000.00">
+                        </div>
+
+                        <div class="af-field-group">
+                            <label for="reg-condition">Initial Condition</label>
+                            <select id="reg-condition" name="condition" class="af-form-select">
+                                <option value="New">New</option>
+                                <option value="Good">Good</option>
+                                <option value="Fair">Fair</option>
+                                <option value="Damaged">Damaged</option>
+                            </select>
+                        </div>
+
+                        <div class="af-field-group">
+                            <label for="reg-location">Location</label>
+                            <input type="text" id="reg-location" name="location" class="af-form-input" placeholder="e.g. Mumbai Office HF-4">
+                        </div>
+
+                        <div class="af-field-group">
+                            <label for="reg-bookable">Is Bookable / Shared?</label>
+                            <select id="reg-bookable" name="is_bookable" class="af-form-select">
+                                <option value="false">No (Assigned Only)</option>
+                                <option value="true">Yes (Shared Resource)</option>
+                            </select>
+                        </div>
+
+                        <div class="af-field-group">
+                            <label for="reg-photo">Photo URL</label>
+                            <input type="text" id="reg-photo" name="photo_url" class="af-form-input" placeholder="e.g. http://...">
+                        </div>
+
+                        <div class="af-field-group">
+                            <label for="reg-deprec">Depreciation Rate (% per year)</label>
+                            <input type="number" step="0.1" id="reg-deprec" name="depreciation_rate" value="10.0" class="af-form-input">
+                        </div>
+
+                        <button type="submit" class="af-btn-pill">Register Asset</button>
+                    </form>
+                </div>
+                {% endif %}
+
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     EDIT ASSET MODAL
+══════════════════════════════════════ -->
+<div class="af-modal-overlay" id="editAssetModal">
+    <div class="af-modal-card" style="max-height: 90vh; overflow-y: auto;">
+        <button class="af-modal-close-btn" onclick="closeModal('editAssetModal')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <h3 class="af-modal-title">Edit Asset Details</h3>
+        <form method="POST" id="editAssetForm">
+            <div class="af-field-group">
+                <label for="edit-name">Asset Name</label>
+                <input type="text" id="edit-name" name="name" class="af-form-input" required>
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-cat">Category</label>
+                <select id="edit-cat" name="category_id" class="af-form-select" required>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}">{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-serial">Serial Number</label>
+                <input type="text" id="edit-serial" name="serial_number" class="af-form-input">
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-date">Acquisition Date</label>
+                <input type="date" id="edit-date" name="acquisition_date" class="af-form-input">
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-cost">Acquisition Cost (₹)</label>
+                <input type="number" step="0.01" id="edit-cost" name="acquisition_cost" class="af-form-input">
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-condition">Condition</label>
+                <select id="edit-condition" name="condition" class="af-form-select">
+                    <option value="New">New</option>
+                    <option value="Good">Good</option>
+                    <option value="Fair">Fair</option>
+                    <option value="Damaged">Damaged</option>
+                </select>
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-location">Location</label>
+                <input type="text" id="edit-location" name="location" class="af-form-input">
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-bookable">Is Bookable / Shared?</label>
+                <select id="edit-bookable" name="is_bookable" class="af-form-select">
+                    <option value="false">No (Assigned Only)</option>
+                    <option value="true">Yes (Shared Resource)</option>
+                </select>
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-photo">Photo URL</label>
+                <input type="text" id="edit-photo" name="photo_url" class="af-form-input">
+            </div>
+
+            <div class="af-field-group">
+                <label for="edit-deprec">Depreciation Rate (% per year)</label>
+                <input type="number" step="0.1" id="edit-deprec" name="depreciation_rate" class="af-form-input">
+            </div>
+
+            <button type="submit" class="af-btn-pill">Save Details</button>
+        </form>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     RETIRE ASSET MODAL
+══════════════════════════════════════ -->
+<div class="af-modal-overlay" id="retireAssetModal">
+    <div class="af-modal-card">
+        <button class="af-modal-close-btn" onclick="closeModal('retireAssetModal')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <h3 class="af-modal-title">Retire/Dispose Asset</h3>
+        <p style="font-size:13.5px; color:var(--af-text-muted); margin-bottom:20px;" id="retire-label"></p>
+        <form method="POST" id="retireAssetForm">
+            <div class="af-field-group">
+                <label for="retire-action">Action</label>
+                <select id="retire-action" name="retire_action" class="af-form-select">
+                    <option value="Retired">Retire (End of lifecycle)</option>
+                    <option value="Disposed">Dispose (Sold / Scrapped)</option>
+                </select>
+            </div>
+            <button type="submit" class="af-btn-pill" style="background:#f43f5e;">Submit Retirement</button>
+        </form>
+    </div>
+</div>
+
+<script>
+// Modal open/close helpers
+function openModal(id) {
+    document.getElementById(id).style.display = 'flex';
+}
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
+// Populate and Open Edit Modal
+function openEditModal(id, name, catId, serial, date, cost, condition, location, isBookable, photoUrl, deprecRate) {
+    const form = document.getElementById('editAssetForm');
+    form.action = "/assets/edit/" + id;
+    
+    document.getElementById('edit-name').value = name;
+    document.getElementById('edit-cat').value = catId;
+    document.getElementById('edit-serial').value = serial;
+    document.getElementById('edit-date').value = date;
+    document.getElementById('edit-cost').value = cost;
+    document.getElementById('edit-condition').value = condition;
+    document.getElementById('edit-location').value = location;
+    document.getElementById('edit-bookable').value = isBookable === 'True' ? 'true' : 'false';
+    document.getElementById('edit-photo').value = photoUrl;
+    document.getElementById('edit-deprec').value = deprecRate;
+    
+    openModal('editAssetModal');
+}
+
+// Populate and Open Retire Modal
+function openRetireModal(id, tag) {
+    const form = document.getElementById('retireAssetForm');
+    form.action = "/assets/retire/" + id;
+    document.getElementById('retire-label').innerText = "Update status for asset: " + tag;
+    openModal('retireAssetModal');
+}
+
+// Mobile sidebar toggle
+const sidebar = document.getElementById('afSidebar');
+const overlay = document.getElementById('sidebarOverlay');
+const toggle = document.getElementById('sidebarToggle');
+const closeBtn = document.getElementById('sidebarClose');
+
+function openSidebar() { sidebar.classList.add('is-open'); overlay.classList.add('is-visible'); }
+function closeSidebar() { sidebar.classList.remove('is-open'); overlay.classList.remove('is-visible'); }
+
+if (toggle) toggle.addEventListener('click', openSidebar);
+if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+if (overlay) overlay.addEventListener('click', closeSidebar);
+</script>
+
+</body>
+</html>

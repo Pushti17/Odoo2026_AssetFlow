@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, session, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, session, current_app, request
 from datetime import datetime
 from flask_wtf import FlaskForm
 from wtforms import StringField, EmailField, PasswordField
@@ -452,7 +452,35 @@ def dashboard():
             maintenance_count=maintenance_count,
             pending_audits_count=pending_audits_count,
             my_allocations=my_allocations,
-            my_bookings=my_bookings,
             my_maintenance=my_maintenance,
             my_audits=my_audits
         )
+
+
+@auth_bp.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    """Manage employee profile details."""
+    user_id = session.get('user_id')
+    user = Employee.query.get(user_id)
+    
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        
+        if not name:
+            flash('Username is required.', 'error')
+            return redirect(url_for('auth.profile'))
+            
+        user.name = name
+        session['user_name'] = name # Update active session
+            
+        try:
+            db.session.commit()
+            flash('Profile updated successfully.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Database error: {e}', 'error')
+            
+        return redirect(url_for('auth.profile'))
+        
+    return render_template('profile.html', user=user)

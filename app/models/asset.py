@@ -40,6 +40,9 @@ class Asset(db.Model):
     # States: Available, Allocated, Reserved, Under Maintenance, Lost, Retired, Disposed
     status = db.Column(db.String(30), default='Available', nullable=False, index=True)
     
+    photo_url = db.Column(db.String(255), nullable=True)
+    depreciation_rate = db.Column(db.Float, default=10.0) # Percentage per year
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships

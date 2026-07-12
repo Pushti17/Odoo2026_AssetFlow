@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity Logs &amp; Notifications – AssetFlow</title>
+    <meta name="description" content="AssetFlow system audit trails and user notification center.">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <style>
+        .split-log-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+        @media (max-width: 992px) {
+            .split-log-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .notif-filter-bar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .notif-filter-btn {
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(99,102,241,.15);
+            background: none;
+            color: var(--af-text-muted);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all .2s;
+            text-decoration: none;
+        }
+        .notif-filter-btn.active, .notif-filter-btn:hover {
+            background: var(--af-indigo);
+            color: white;
+            border-color: var(--af-indigo);
+        }
+
+        .notif-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .notif-item {
+            background: #f5f7fb;
+            border: 1px solid rgba(0,0,0,.03);
+            border-radius: 14px;
+            padding: 16px;
+            position: relative;
+            box-shadow: inset 1px 1px 3px rgba(0,0,0,.02);
+        }
+        .notif-item.unread {
+            background: rgba(99,102,241,.03);
+            border-color: rgba(99,102,241,.1);
+        }
+        .notif-item.unread::before {
+            content: '';
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--af-indigo);
+        }
+        .notif-type-tag {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin-bottom: 4px;
+            display: inline-block;
+        }
+        .notif-title {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--af-text);
+            margin-bottom: 4px;
+        }
+        .notif-message {
+            font-size: 12.5px;
+            color: var(--af-text-muted);
+            line-height: 1.4;
+        }
+        .notif-time {
+            font-size: 10px;
+            color: var(--af-text-muted);
+            margin-top: 8px;
+        }
+
+        /* Timeline audit logs */
+        .timeline-list {
+            position: relative;
+            padding-left: 20px;
+            border-left: 2px solid rgba(99,102,241,.12);
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 4px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--af-indigo);
+            border: 2px solid var(--af-surface);
+        }
+        .timeline-content {
+            background: #f5f7fb;
+            border-radius: 12px;
+            padding: 12px 16px;
+            box-shadow: inset 1px 1px 3px rgba(0,0,0,.02);
+        }
+        .timeline-user {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: var(--af-text);
+            margin-bottom: 2px;
+        }
+        .timeline-action {
+            font-size: 13px;
+            color: var(--af-text-muted);
+            margin-bottom: 4px;
+        }
+        .timeline-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10.5px;
+            color: var(--af-text-muted);
+        }
+    </style>
+</head>
+<body>
+
+<div class="af-layout">
+
+    <!-- ── Sidebar include ── -->
+    {% include 'sidebar.html' %}
+
+    <div class="af-main">
+
+        <!-- ── Top-bar ── -->
+        <header class="af-topbar">
+            <button class="af-topbar__hamburger" id="sidebarToggle" aria-label="Toggle sidebar">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
+
+            <div class="af-topbar__breadcrumb">
+                <span class="af-topbar__breadcrumb-parent">AssetFlow</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+                <span class="af-topbar__breadcrumb-current">Notifications</span>
+            </div>
+
+            <div class="af-topbar__actions">
+                <div class="af-topbar__avatar">
+                    {{ session.get('user_name', 'N')[0].upper() }}
+                </div>
+            </div>
+        </header>
+
+        <!-- ── Page body ── -->
+        <main class="af-page">
+
+            <!-- Flash notifications -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="af-flash af-flash--{{ category }}" style="margin-bottom:15px;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <section class="af-dashboard__hero" style="margin-bottom: 5px;">
+                <div class="af-dashboard__hero-text">
+                    <h1 class="af-dashboard__title">Notifications &amp; Activity</h1>
+                    <p class="af-dashboard__subtitle">Track updates, system events, and check audit details.</p>
+                </div>
+            </section>
+
+            <div class="split-log-grid">
+                
+                <!-- COLUMN 1: NOTIFICATIONS STREAM -->
+                <div class="af-panel">
+                    <div class="af-panel__header" style="justify-content: space-between; align-items:center;">
+                        <h2 class="af-panel__title">Notification Inbox</h2>
+                        <form method="POST" action="{{ url_for('notifications.index') }}">
+                            <input type="hidden" name="action" value="mark_all_read">
+                            <button type="submit" style="background:none; border:none; color:var(--af-indigo); font-weight:600; font-size:12.5px; cursor:pointer;">Mark all read</button>
+                        </form>
+                    </div>
+
+                    <!-- Filter badges -->
+                    <div class="notif-filter-bar">
+                        <a href="{{ url_for('notifications.index') }}" class="notif-filter-btn {% if not active_type %}active{% endif %}">All</a>
+                        <a href="{{ url_for('notifications.index', type='Asset Assigned') }}" class="notif-filter-btn {% if active_type == 'Asset Assigned' %}active{% endif %}">Asset Assigned</a>
+                        <a href="{{ url_for('notifications.index', type='Maintenance Approved') }}" class="notif-filter-btn {% if active_type == 'Maintenance Approved' %}active{% endif %}">Maintenance</a>
+                        <a href="{{ url_for('notifications.index', type='Bookings') }}" class="notif-filter-btn {% if active_type == 'Bookings' %}active{% endif %}">Bookings</a>
+                        <a href="{{ url_for('notifications.index', type='Transfers') }}" class="notif-filter-btn {% if active_type == 'Transfers' %}active{% endif %}">Transfers</a>
+                        <a href="{{ url_for('notifications.index', type='Overdue Return Alert') }}" class="notif-filter-btn {% if active_type == 'Overdue Return Alert' %}active{% endif %}">Overdue Alerts</a>
+                    </div>
+
+                    <div class="notif-list">
+                        {% if notifications %}
+                            {% for notif in notifications %}
+                            <div class="notif-item {% if not notif.is_read %}unread{% endif %}">
+                                <span class="notif-type-tag" style="color: {% if notif.notification_type == 'Asset Assigned' %}var(--af-indigo){% elif notif.notification_type == 'Maintenance Approved' %}var(--af-amber){% elif notif.notification_type == 'Overdue Return Alert' %}var(--af-rose){% else %}var(--af-emerald){% endif %};">
+                                    {{ notif.notification_type }}
+                                </span>
+                                <h4 class="notif-title">{{ notif.title }}</h4>
+                                <p class="notif-message">{{ notif.message }}</p>
+                                <div class="notif-time">{{ notif.created_at.strftime('%d-%b-%Y  ·  %H:%M') }}</div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                        <div style="padding: 24px; text-align: center; color: var(--af-text-muted);">
+                            Inbox is clean. No notifications here.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- COLUMN 2: SYSTEM AUDIT LOG TIMELINE -->
+                <div class="af-panel">
+                    <div class="af-panel__header">
+                        <h2 class="af-panel__title">
+                            {% if role == 'Employee' %}My Activity Logs
+                            {% elif role == 'Department Head' %}Department Audit Logs
+                            {% else %}Full Audit Log Ledger
+                            {% endif %}
+                        </h2>
+                    </div>
+
+                    <div class="timeline-list">
+                        {% if audit_logs %}
+                            {% for log in audit_logs %}
+                            <div class="timeline-item">
+                                <div class="timeline-content">
+                                    <div class="timeline-user">
+                                        {{ log.user.name if log.user else 'System / Automated' }}
+                                    </div>
+                                    <div class="timeline-action">{{ log.action }}</div>
+                                    <div class="timeline-meta">
+                                        <span>{{ log.created_at.strftime('%d-%b-%Y %H:%M:%S') }}</span>
+                                        {% if role in ['Admin', 'Asset Manager'] %}
+                                        <span style="font-weight:600; color:var(--af-rose);">IP: {{ log.ip_address }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                        <div style="padding: 24px; text-align: center; color: var(--af-text-muted);">
+                            No log events captured.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<script>
+// Mobile sidebar toggle
+const sidebar = document.getElementById('afSidebar');
+const overlay = document.getElementById('sidebarOverlay');
+const toggle = document.getElementById('sidebarToggle');
+const closeBtn = document.getElementById('sidebarClose');
+
+function openSidebar() { sidebar.classList.add('is-open'); overlay.classList.add('is-visible'); }
+function closeSidebar() { sidebar.classList.remove('is-open'); overlay.classList.remove('is-visible'); }
+
+if (toggle) toggle.addEventListener('click', openSidebar);
+if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+if (overlay) overlay.addEventListener('click', closeSidebar);
+</script>
+
+</body>
+</html>

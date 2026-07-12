@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile – AssetFlow</title>
+    <meta name="description" content="Manage your personal AssetFlow profile details.">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <style>
+        .profile-container {
+            max-width: 540px;
+            margin: 0 auto;
+        }
+
+        .af-field-group {
+            margin-bottom: 16px;
+        }
+        .af-field-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--af-text-muted);
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .af-form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            outline: none;
+            border-radius: 12px;
+            background: #f5f7fb;
+            font-family: inherit;
+            font-size: 14.5px;
+            box-shadow:
+                inset 2px 2px 5px rgba(0,0,0,.04),
+                inset -2px -2px 5px rgba(255,255,255,.7);
+            transition: all .2s;
+        }
+        .af-form-input:focus {
+            box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+        }
+        .af-form-input:disabled {
+            background: #e9eef5;
+            color: var(--af-text-muted);
+            cursor: not-allowed;
+            box-shadow: none;
+            border: 1px solid rgba(0,0,0,.03);
+        }
+
+        .af-btn-pill {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 50px;
+            background: var(--af-indigo);
+            color: white;
+            font-family: inherit;
+            font-size: 14.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: .2s;
+            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(99,102,241,.2);
+        }
+        .af-btn-pill:hover {
+            background: var(--af-indigo-d);
+            transform: translateY(-1.5px);
+        }
+
+        .profile-avatar-block {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .profile-avatar {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: var(--af-indigo);
+            color: white;
+            font-size: 32px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px rgba(99,102,241,.15);
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="af-layout">
+
+    <!-- ── Sidebar include ── -->
+    {% include 'sidebar.html' %}
+
+    <div class="af-main">
+
+        <!-- ── Top-bar ── -->
+        <header class="af-topbar">
+            <button class="af-topbar__hamburger" id="sidebarToggle" aria-label="Toggle sidebar">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
+
+            <div class="af-topbar__breadcrumb">
+                <span class="af-topbar__breadcrumb-parent">AssetFlow</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+                <span class="af-topbar__breadcrumb-current">My Profile</span>
+            </div>
+
+            <div class="af-topbar__actions">
+                <div class="af-topbar__avatar">
+                    {{ session.get('user_name', 'U')[0].upper() }}
+                </div>
+            </div>
+        </header>
+
+        <!-- ── Page body ── -->
+        <main class="af-page">
+
+            <!-- Flash notifications -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="af-flash af-flash--{{ category }}" style="margin-bottom: 15px;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <div class="profile-container">
+                <div class="af-panel">
+                    
+                    <div class="profile-avatar-block">
+                        <div class="profile-avatar">
+                            {{ user.name[0].upper() }}
+                        </div>
+                        <h3>{{ user.name }}</h3>
+                        <p style="color:var(--af-text-muted); font-size:12.5px; margin-top:2px;">{{ user.role }}</p>
+                    </div>
+
+                    <form method="POST">
+                        
+                        <!-- Editable Username -->
+                        <div class="af-field-group">
+                            <label for="prof-name">Username</label>
+                            <input type="text" id="prof-name" name="name" value="{{ user.name }}" class="af-form-input" required>
+                        </div>
+
+                        <!-- Read-only Email -->
+                        <div class="af-field-group">
+                            <label for="prof-email">Email</label>
+                            <input type="email" id="prof-email" value="{{ user.email }}" class="af-form-input" disabled readonly>
+                        </div>
+
+                        <!-- Read-only Role -->
+                        <div class="af-field-group">
+                            <label for="prof-role">System Role</label>
+                            <input type="text" id="prof-role" value="{{ user.role }}" class="af-form-input" disabled readonly>
+                        </div>
+
+                        <button type="submit" class="af-btn-pill">Save Profile Changes</button>
+
+                    </form>
+
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<script>
+// Mobile sidebar toggle
+const sidebar = document.getElementById('afSidebar');
+const overlay = document.getElementById('sidebarOverlay');
+const toggle = document.getElementById('sidebarToggle');
+const closeBtn = document.getElementById('sidebarClose');
+
+function openSidebar() { sidebar.classList.add('is-open'); overlay.classList.add('is-visible'); }
+function closeSidebar() { sidebar.classList.remove('is-open'); overlay.classList.remove('is-visible'); }
+
+if (toggle) toggle.addEventListener('click', openSidebar);
+if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+if (overlay) overlay.addEventListener('click', closeSidebar);
+</script>
+
+</body>
+</html>

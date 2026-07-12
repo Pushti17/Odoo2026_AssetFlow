@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Details &amp; History – AssetFlow</title>
+    <meta name="description" content="AssetFlow individual asset profile, deprecation calculations and allocation history.">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <style>
+        .details-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+        @media (max-width: 768px) {
+            .details-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .asset-avatar-card {
+            background: var(--af-surface);
+            border: 1px solid var(--af-border);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+        }
+        .asset-photo {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: #718096;
+            margin-bottom: 16px;
+            object-fit: cover;
+            border: 3px solid white;
+            box-shadow: 0 10px 25px rgba(0,0,0,.05);
+        }
+        .meta-list {
+            margin-top: 20px;
+            text-align: left;
+        }
+        .meta-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(0,0,0,.04);
+            font-size: 13.5px;
+        }
+        .meta-item span {
+            color: var(--af-text-muted);
+        }
+        .meta-item strong {
+            color: var(--af-text);
+        }
+    </style>
+</head>
+<body>
+
+<div class="af-layout">
+
+    <!-- ── Sidebar include ── -->
+    {% include 'sidebar.html' %}
+
+    <div class="af-main">
+
+        <!-- ── Top-bar ── -->
+        <header class="af-topbar">
+            <div class="af-topbar__breadcrumb">
+                <span class="af-topbar__breadcrumb-parent">Asset Directory</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+                <span class="af-topbar__breadcrumb-current">{{ asset.asset_tag }}</span>
+            </div>
+            <div class="af-topbar__actions">
+                <a href="{{ url_for('asset.index') }}" class="af-btn-approve" style="text-decoration:none; background:rgba(99,102,241,.06); color:var(--af-indigo); padding: 8px 18px; border-radius:50px;">
+                    &larr; Back to Directory
+                </a>
+            </div>
+        </header>
+
+        <!-- ── Page body ── -->
+        <main class="af-page">
+
+            <!-- Flash notifications -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="af-flash af-flash--{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <div class="details-grid">
+                
+                <!-- Left Column: Photo Card + Quick Info -->
+                <div class="asset-avatar-card">
+                    {% if asset.photo_url %}
+                    <img src="{{ asset.photo_url }}" alt="{{ asset.name }}" class="asset-photo">
+                    {% else %}
+                    <div class="asset-photo">📦</div>
+                    {% endif %}
+
+                    <h3>{{ asset.name }}</h3>
+                    <p style="color:var(--af-text-muted); font-size:13px; margin-top:2px;">{{ asset.category.name }}</p>
+
+                    <div class="meta-list">
+                        <div class="meta-item">
+                            <span>Status</span>
+                            <span class="af-status 
+                                {% if asset.status == 'Available' %}af-status--approved
+                                {% elif asset.status in ['Allocated', 'Reserved'] %}af-status--review
+                                {% elif asset.status == 'Under Maintenance' %}af-status--pending
+                                {% else %}af-status--rejected{% endif %}" style="padding: 2px 8px; font-size:11px;">
+                                {{ asset.status }}
+                            </span>
+                        </div>
+                        <div class="meta-item">
+                            <span>Location</span>
+                            <strong>{{ asset.location or 'Not specified' }}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>Asset Type</span>
+                            <strong>{{ 'Shared / Bookable' if asset.is_bookable else 'Assigned Only' }}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>Condition</span>
+                            <strong>{{ asset.condition }}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Costings (Gated) + History Ledgers -->
+                <div style="display:flex; flex-direction:column; gap:20px;">
+                    
+                    <!-- Financial & Lifecycle Details Panel (Admin / Asset Manager / Dept Head only) -->
+                    {% if role != 'Employee' %}
+                    <div class="af-panel">
+                        <div class="af-panel__header">
+                            <h2 class="af-panel__title">Financial &amp; Depreciation Profile</h2>
+                        </div>
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:15px; padding: 15px 0;">
+                            <div>
+                                <span style="display:block; font-size:12.5px; color:var(--af-text-muted); margin-bottom:4px;">Serial Number</span>
+                                <strong style="font-size:14.5px;">{{ asset.serial_number or 'N/A' }}</strong>
+                            </div>
+                            <div>
+                                <span style="display:block; font-size:12.5px; color:var(--af-text-muted); margin-bottom:4px;">Acquisition Date</span>
+                                <strong style="font-size:14.5px;">{{ asset.acquisition_date.strftime('%d-%b-%Y') if asset.acquisition_date else 'N/A' }}</strong>
+                            </div>
+                            <div>
+                                <span style="display:block; font-size:12.5px; color:var(--af-text-muted); margin-bottom:4px;">Acquisition Cost</span>
+                                <strong style="font-size:14.5px;">{{ '₹{:,.2f}'.format(asset.acquisition_cost) if asset.acquisition_cost else 'N/A' }}</strong>
+                            </div>
+                            <div>
+                                <span style="display:block; font-size:12.5px; color:var(--af-text-muted); margin-bottom:4px;">Depreciation Rate</span>
+                                <strong style="font-size:14.5px; color: var(--af-rose);">{{ asset.depreciation_rate }}% / year</strong>
+                            </div>
+                            <div>
+                                <span style="display:block; font-size:12.5px; color:var(--af-text-muted); margin-bottom:4px;">Current Depreciated Value</span>
+                                <strong style="font-size:14.5px; color: var(--af-emerald);">
+                                    {{ '₹{:,.2f}'.format(depreciated_value) if asset.acquisition_cost else 'N/A' }}
+                                </strong>
+                                <span style="display:block; font-size:10.5px; color:var(--af-text-muted);">({{ years_since_acq }} years elapsed)</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Allocation History Ledger -->
+                    <div class="af-panel">
+                        <div class="af-panel__header">
+                            <h2 class="af-panel__title">Allocation History</h2>
+                        </div>
+                        <div class="af-table-wrap">
+                            {% if allocations_history %}
+                            <table class="af-table">
+                                <thead>
+                                    <tr>
+                                        <th>Assigned To</th>
+                                        <th>Assigned Date</th>
+                                        <th>Expected Return</th>
+                                        <th>Returned Date</th>
+                                        <th>Returned Condition</th>
+                                        <th>Check-in Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for alloc in allocations_history %}
+                                    <tr>
+                                        <td><strong>{{ alloc.employee.name }}</strong> ({{ alloc.employee.email }})</td>
+                                        <td>{{ alloc.assigned_date.strftime('%d-%b-%Y') }}</td>
+                                        <td>{{ alloc.expected_return_date.strftime('%d-%b-%Y') if alloc.expected_return_date else 'Permanent' }}</td>
+                                        <td>{{ alloc.returned_date.strftime('%d-%b-%Y') if alloc.returned_date else 'Active' }}</td>
+                                        <td>{{ alloc.returned_condition or '-' }}</td>
+                                        <td>{{ alloc.check_in_notes or '-' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% else %}
+                            <div style="padding:20px; text-align:center; color:var(--af-text-muted);">
+                                No allocation history exists for this asset.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Maintenance History Ledger -->
+                    <div class="af-panel">
+                        <div class="af-panel__header">
+                            <h2 class="af-panel__title">Maintenance History Requests</h2>
+                        </div>
+                        <div class="af-table-wrap">
+                            {% if maintenance_history %}
+                            <table class="af-table">
+                                <thead>
+                                    <tr>
+                                        <th>Request ID</th>
+                                        <th>Description</th>
+                                        <th>Priority</th>
+                                        <th>Status</th>
+                                        <th>Created At</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for req in maintenance_history %}
+                                    <tr>
+                                        <td><strong>#{{ req.id }}</strong></td>
+                                        <td>{{ req.description }}</td>
+                                        <td>
+                                            <span class="af-tag 
+                                                {% if req.priority == 'Critical' %}af-tag--rose
+                                                {% elif req.priority == 'Medium' %}af-tag--amber
+                                                {% else %}af-tag--indigo{% endif %}" style="padding:2px 8px; font-size:11px;">
+                                                {{ req.priority }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="af-status 
+                                                {% if req.status == 'Resolved' %}af-status--approved
+                                                {% elif req.status == 'Pending' %}af-status--pending
+                                                {% else %}af-status--rejected{% endif %}">
+                                                {{ req.status }}
+                                            </span>
+                                        </td>
+                                        <td>{{ req.created_at.strftime('%d-%b-%Y') }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% else %}
+                            <div style="padding:20px; text-align:center; color:var(--af-text-muted);">
+                                No maintenance history exists for this asset.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<script>
+// Mobile sidebar toggle
+const sidebar = document.getElementById('afSidebar');
+const overlay = document.getElementById('sidebarOverlay');
+const toggle = document.getElementById('sidebarToggle');
+const closeBtn = document.getElementById('sidebarClose');
+
+function openSidebar() { sidebar.classList.add('is-open'); overlay.classList.add('is-visible'); }
+function closeSidebar() { sidebar.classList.remove('is-open'); overlay.classList.remove('is-visible'); }
+
+if (toggle) toggle.addEventListener('click', openSidebar);
+if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+if (overlay) overlay.addEventListener('click', closeSidebar);
+</script>
+
+</body>
+</html>

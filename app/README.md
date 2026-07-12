@@ -93,5 +93,14 @@ DB_PORT=3306
 DB_NAME=assetflow_db
 SECRET_KEY=your_secret_key_here
 
+MAIL_SERVER='smtp.gmail.com'
+MAIL_PORT=587
+MAIL_USE_TLS='True'
+MAIL_USERNAME='your-gmail-address@gmail.com'
+MAIL_PASSWORD='your-gmail-app-password' (not your original passsword.add your 16 character generated google app password)
+MAIL_DEFAULT_SENDER='your-gmail-address@gmail.com'
+
+'pip install -r requirements.txt' use this command to install necessary librraries and packages
+
 Run Application
 python run.py
