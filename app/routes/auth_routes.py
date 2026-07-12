@@ -112,7 +112,7 @@ def signup():
             name          = username,
             email         = email,
             password_hash = hashed,
-            role          = 'Employee',  # Enforced — no self-elevation allowed
+            role          = 'Employee',
             status        = 'Active',
         )
 
@@ -326,7 +326,7 @@ def dashboard():
     now_hour = datetime.now().hour
 
     if user_role in ['Admin', 'Asset Manager']:
-        # ── ADMIN / ASSET MANAGER (ORG-WIDE) SCOPE ──
+        # ── ORG-WIDE DATA RETRIEVAL FOR ADMIN & ASSET MANAGER ──
         total_assets = Asset.query.count()
         allocated_count = Allocation.query.filter_by(is_active=True).count()
         maintenance_count = Asset.query.filter_by(status='Under Maintenance').count()
@@ -342,23 +342,39 @@ def dashboard():
         recent_allocations = Allocation.query.order_by(Allocation.id.desc()).limit(5).all()
         recent_maintenance = MaintenanceRequest.query.order_by(MaintenanceRequest.id.desc()).limit(5).all()
 
-        # Pending admin approvals
+        # Pending approvals
         pending_maintenance = MaintenanceRequest.query.filter_by(status='Pending').all()
         pending_transfers = Transfer.query.filter_by(status='Pending').all()
 
-        return render_template(
-            'admin_dashboard.html',
-            now_hour=now_hour,
-            total_assets=total_assets,
-            allocated_count=allocated_count,
-            maintenance_count=maintenance_count,
-            pending_audits_count=pending_audits_count,
-            category_distribution=category_distribution,
-            recent_allocations=recent_allocations,
-            recent_maintenance=recent_maintenance,
-            pending_maintenance=pending_maintenance,
-            pending_transfers=pending_transfers
-        )
+        if user_role == 'Admin':
+            return render_template(
+                'admin_dashboard.html',
+                now_hour=now_hour,
+                total_assets=total_assets,
+                allocated_count=allocated_count,
+                maintenance_count=maintenance_count,
+                pending_audits_count=pending_audits_count,
+                category_distribution=category_distribution,
+                recent_allocations=recent_allocations,
+                recent_maintenance=recent_maintenance,
+                pending_maintenance=pending_maintenance,
+                pending_transfers=pending_transfers
+            )
+        else:
+            # Asset Manager
+            return render_template(
+                'manager_dashboard.html',
+                now_hour=now_hour,
+                total_assets=total_assets,
+                allocated_count=allocated_count,
+                maintenance_count=maintenance_count,
+                pending_audits_count=pending_audits_count,
+                category_distribution=category_distribution,
+                recent_allocations=recent_allocations,
+                recent_maintenance=recent_maintenance,
+                pending_maintenance=pending_maintenance,
+                pending_transfers=pending_transfers
+            )
     else:
         # ── EMPLOYEE (PERSONAL) SCOPE ──
         my_allocations = Allocation.query.filter_by(employee_id=user_id, is_active=True).all()
