@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Allocation &amp; Transfers – AssetFlow</title>
+    <meta name="description" content="AssetFlow Asset Allocation &amp; Transfers management.">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <style>
+        .af-tabs-nav {
+            display: flex;
+            gap: 8px;
+            border-bottom: 1.5px solid rgba(99,102,241,.12);
+            padding-bottom: 2px;
+            margin-bottom: 20px;
+        }
+        .af-tab-link {
+            padding: 10px 20px;
+            border-radius: 12px 12px 0 0;
+            background: none;
+            border: none;
+            font-family: inherit;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--af-text-muted);
+            cursor: pointer;
+            transition: all .2s;
+            position: relative;
+        }
+        .af-tab-link:hover {
+            color: var(--af-indigo);
+            background: rgba(99,102,241,.04);
+        }
+        .af-tab-link.active {
+            color: var(--af-indigo);
+            background: rgba(99,102,241,.06);
+        }
+        .af-tab-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2.5px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--af-indigo);
+            border-radius: 3px 3px 0 0;
+        }
+
+        .af-tab-panel {
+            display: none;
+            animation: fadeIn .3s ease-in-out;
+        }
+        .af-tab-panel.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .org-split-grid {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+            align-items: start;
+        }
+        @media (max-width: 992px) {
+            .org-split-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .af-field-group {
+            margin-bottom: 16px;
+        }
+        .af-field-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--af-text-muted);
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .af-form-input, .af-form-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            outline: none;
+            border-radius: 12px;
+            background: #f5f7fb;
+            font-family: inherit;
+            font-size: 14.5px;
+            box-shadow:
+                inset 2px 2px 5px rgba(0,0,0,.04),
+                inset -2px -2px 5px rgba(255,255,255,.7);
+            transition: box-shadow .2s;
+        }
+        .af-form-input:focus, .af-form-select:focus {
+            box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+        }
+
+        .af-btn-pill {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 50px;
+            background: var(--af-indigo);
+            color: white;
+            font-family: inherit;
+            font-size: 14.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: .2s;
+            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(99,102,241,.2);
+        }
+        .af-btn-pill:hover {
+            background: var(--af-indigo-d);
+            transform: translateY(-1.5px);
+        }
+
+        /* Modal styling */
+        .af-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.35);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+        }
+        .af-modal-card {
+            background: var(--af-surface);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--af-border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 440px;
+            padding: 30px;
+            box-shadow: 0 24px 60px rgba(0,0,0,.15);
+            position: relative;
+        }
+        .af-modal-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--af-text);
+            margin-bottom: 20px;
+        }
+        .af-modal-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--af-text-muted);
+            padding: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="af-layout">
+
+    <!-- ── Sidebar include ── -->
+    {% include 'sidebar.html' %}
+
+    <div class="af-main">
+
+        <!-- ── Top-bar ── -->
+        <header class="af-topbar">
+            <button class="af-topbar__hamburger" id="sidebarToggle" aria-label="Toggle sidebar">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
+
+            <div class="af-topbar__breadcrumb">
+                <span class="af-topbar__breadcrumb-parent">AssetFlow</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+                <span class="af-topbar__breadcrumb-current">
+                    {% if role == 'Employee' %}My Transfers{% else %}Asset Allocation &amp; Transfers{% endif %}
+                </span>
+            </div>
+
+            <div class="af-topbar__actions">
+                <div class="af-topbar__avatar">
+                    {{ session.get('user_name', 'U')[0].upper() }}
+                </div>
+            </div>
+        </header>
+
+        <!-- ── Page body ── -->
+        <main class="af-page">
+
+            <!-- Flash notifications -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="af-flash af-flash--{{ category }}" style="margin-bottom:15px;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <section class="af-dashboard__hero" style="margin-bottom: 5px;">
+                <div class="af-dashboard__hero-text">
+                    <h1 class="af-dashboard__title">
+                        {% if role == 'Employee' %}My Asset Transfers{% else %}Asset Allocation &amp; Transfers Control{% endif %}
+                    </h1>
+                    <p class="af-dashboard__subtitle">
+                        {% if role == 'Employee' %}View details of your assigned assets and initiate or approve transfers.{% else %}Manage registrations, assign assets, review transfers and return checks.{% endif %}
+                    </p>
+                </div>
+            </section>
+
+            <!-- Tabs Navigation -->
+            <div class="af-tabs-nav">
+                <button class="af-tab-link active" onclick="switchTab('allocations')">Active Allocations</button>
+                <button class="af-tab-link" onclick="switchTab('transfers')">Transfer Requests</button>
+                <button class="af-tab-link" onclick="switchTab('history')">Allocation History</button>
+            </div>
+
+            <!-- ══════════════════════════════════════
+                 TAB: ACTIVE ALLOCATIONS
+            ══════════════════════════════════════ -->
+            <div class="af-tab-panel active" id="tab-allocations">
+                <div class="{% if role == 'Employee' %}af-panel{% else %}org-split-grid{% endif %}">
+                    
+                    <!-- Allocations list -->
+                    <div class="af-panel">
+                        <div class="af-panel__header">
+                            <h2 class="af-panel__title">
+                                {% if role == 'Employee' %}Assets Currently Assigned to Me{% else %}Active Allocations{% endif %}
+                            </h2>
+                        </div>
+                        <div class="af-table-wrap">
+                            {% if active_allocations %}
+                            <table class="af-table">
+                                <thead>
+                                    <tr>
+                                        <th>Asset Tag</th>
+                                        <th>Asset Name</th>
+                                        {% if role != 'Employee' %}
+                                        <th>Allocated To</th>
+                                        {% endif %}
+                                        <th>Assigned Date</th>
+                                        <th>Expected Return</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for alloc in active_allocations %}
+                                    {% set is_overdue = alloc.expected_return_date and alloc.expected_return_date < datetime.utcnow() %}
+                                    <tr {% if is_overdue %}style="background: rgba(244,63,94,.04);"{% endif %}>
+                                        <td>
+                                            <strong>{{ alloc.asset.asset_tag }}</strong>
+                                            {% if is_overdue %}
+                                            <span class="af-tag af-tag--rose" style="padding: 1px 6px; font-size: 9px; margin-left: 5px;">Overdue</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ alloc.asset.name }}</td>
+                                        {% if role != 'Employee' %}
+                                        <td>{{ alloc.employee.name }} ({{ alloc.employee.email }})</td>
+                                        {% endif %}
+                                        <td>{{ alloc.assigned_date.strftime('%d-%b-%Y') }}</td>
+                                        <td>
+                                            {% if alloc.expected_return_date %}
+                                            <span {% if is_overdue %}style="color: var(--af-rose); font-weight: 600;"{% endif %}>
+                                                {{ alloc.expected_return_date.strftime('%d-%b-%Y') }}
+                                            </span>
+                                            {% else %}
+                                            Permanent
+                                            {% endif %}
+                                        </td>
+                                        <td class="af-table__actions">
+                                            <!-- Return action -->
+                                            <button class="af-btn-approve" onclick="openReturnModal('{{ alloc.id }}', '{{ alloc.asset.asset_tag }} - {{ alloc.asset.name }}')">
+                                                Return
+                                            </button>
+
+                                            <!-- Transfer request action for Employees -->
+                                            {% if role == 'Employee' %}
+                                            <button class="af-btn-reject" onclick="openRequestTransferModal('{{ alloc.asset.id }}', '{{ alloc.asset.name }}')" style="background: rgba(99,102,241,.1); color: var(--af-indigo);">
+                                                Transfer
+                                            </button>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% else %}
+                            <div style="padding: 24px; text-align: center; color: var(--af-text-muted);">
+                                No active allocations found.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Allocation Form (Only for Admin, Asset Manager, Dept Head) -->
+                    {% if role != 'Employee' %}
+                    <div class="af-panel">
+                        <div class="af-panel__header">
+                            <h2 class="af-panel__title">Allocate Asset</h2>
+                        </div>
+                        <form method="POST">
+                            <input type="hidden" name="action" value="allocate">
+                            
+                            <div class="af-field-group">
+                                <label for="alloc-asset">Select Asset</label>
+                                <select id="alloc-asset" name="asset_id" class="af-form-select" required>
+                                    <option value="">Select available asset...</option>
+                                    {% for asset in all_assets %}
+                                    <option value="{{ asset.id }}">{{ asset.asset_tag }} - {{ asset.name }} ({{ asset.status }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="af-field-group">
+                                <label for="alloc-emp">Allocate To (Employee)</label>
+                                <select id="alloc-emp" name="employee_id" class="af-form-select" required>
+                                    {% for emp in employees_list %}
+                                    <option value="{{ emp.id }}">{{ emp.name }} ({{ emp.email }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="af-field-group">
+                                <label for="alloc-return">Expected Return Date (Optional)</label>
+                                <input type="date" id="alloc-return" name="expected_return_date" class="af-form-input">
+                            </div>
+
+                            <button type="submit" class="af-btn-pill">Process Allocation</button>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════
+                 TAB: TRANSFER REQUESTS
+            ══════════════════════════════════════ -->
+            <div class="af-tab-panel" id="tab-transfers">
+                
+                <!-- Pending Transfers -->
+                <div class="af-panel" style="margin-bottom: 20px;">
+                    <div class="af-panel__header">
+                        <h2 class="af-panel__title">Pending Transfer Requests</h2>
+                    </div>
+                    <div class="af-table-wrap">
+                        {% if pending_transfers %}
+                        <table class="af-table">
+                            <thead>
+                                <tr>
+                                    <th>Asset Tag</th>
+                                    <th>Asset Name</th>
+                                    <th>Current Holder</th>
+                                    <th>Target Recipient</th>
+                                    <th>Requested Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for trans in pending_transfers %}
+                                <tr>
+                                    <td><strong>{{ trans.asset.asset_tag }}</strong></td>
+                                    <td>{{ trans.asset.name }}</td>
+                                    <td>{{ trans.from_employee.name }}</td>
+                                    <td>{{ trans.to_employee.name }}</td>
+                                    <td>{{ trans.requested_at.strftime('%d-%b-%Y') }}</td>
+                                    <td class="af-table__actions">
+                                        <!-- Actions differ based on roles -->
+                                        {% set can_action = false %}
+                                        {% if role in ['Admin', 'Asset Manager'] %}
+                                            {% set can_action = true %}
+                                        {% elif role == 'Department Head' and trans.asset.dept_id == dept_id %}
+                                            {% set can_action = true %}
+                                        {% elif role == 'Employee' and trans.from_employee_id == session.get('user_id') %}
+                                            {% set can_action = true %}
+                                        {% endif %}
+
+                                        {% if can_action %}
+                                        <form method="POST" style="display:inline-block;">
+                                            <input type="hidden" name="action" value="approve_transfer">
+                                            <input type="hidden" name="transfer_id" value="{{ trans.id }}">
+                                            <button type="submit" class="af-btn-approve">Approve</button>
+                                        </form>
+                                        <form method="POST" style="display:inline-block;">
+                                            <input type="hidden" name="action" value="reject_transfer">
+                                            <input type="hidden" name="transfer_id" value="{{ trans.id }}">
+                                            <button type="submit" class="af-btn-reject">Reject</button>
+                                        </form>
+                                        {% else %}
+                                        <span class="af-status af-status--pending">Awaiting Review</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div style="padding: 24px; text-align: center; color: var(--af-text-muted);">
+                            No pending transfer requests.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Past Transfers History -->
+                <div class="af-panel">
+                    <div class="af-panel__header">
+                        <h2 class="af-panel__title">Transfer History</h2>
+                    </div>
+                    <div class="af-table-wrap">
+                        {% if past_transfers %}
+                        <table class="af-table">
+                            <thead>
+                                <tr>
+                                    <th>Asset Tag</th>
+                                    <th>Asset Name</th>
+                                    <th>From Holder</th>
+                                    <th>To Recipient</th>
+                                    <th>Status</th>
+                                    <th>Processed Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for trans in past_transfers %}
+                                <tr>
+                                    <td><strong>{{ trans.asset.asset_tag }}</strong></td>
+                                    <td>{{ trans.asset.name }}</td>
+                                    <td>{{ trans.from_employee.name }}</td>
+                                    <td>{{ trans.to_employee.name }}</td>
+                                    <td>
+                                        <span class="af-status {% if trans.status == 'Approved' %}af-status--approved{% else %}af-status--rejected{% endif %}">
+                                            {{ trans.status }}
+                                        </span>
+                                    </td>
+                                    <td>{{ trans.processed_at.strftime('%d-%b-%Y') if trans.processed_at else 'N/A' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div style="padding: 24px; text-align: center; color: var(--af-text-muted);">
+                            No past transfers recorded.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ══════════════════════════════════════
+                 TAB: ALLOCATION HISTORY
+            ══════════════════════════════════════ -->
+            <div class="af-tab-panel" id="tab-history">
+                <div class="af-panel">
+                    <div class="af-panel__header">
+                        <h2 class="af-panel__title">Completed Allocations History</h2>
+                    </div>
+                    <div class="af-table-wrap">
+                        {% if past_allocations %}
+                        <table class="af-table">
+                            <thead>
+                                <tr>
+                                    <th>Asset Tag</th>
+                                    <th>Asset Name</th>
+                                    <th>Assigned To</th>
+                                    <th>Assigned Date</th>
+                                    <th>Returned Date</th>
+                                    <th>Check-in Notes</th>
+                                    <th>Condition</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for alloc in past_allocations %}
+                                <tr>
+                                    <td><strong>{{ alloc.asset.asset_tag }}</strong></td>
+                                    <td>{{ alloc.asset.name }}</td>
+                                    <td>{{ alloc.employee.name }}</td>
+                                    <td>{{ alloc.assigned_date.strftime('%d-%b-%Y') }}</td>
+                                    <td>{{ alloc.returned_date.strftime('%d-%b-%Y') if alloc.returned_date else 'N/A' }}</td>
+                                    <td>{{ alloc.check_in_notes or '-' }}</td>
+                                    <td>
+                                        <span class="af-tag {% if alloc.returned_condition == 'Good' %}af-tag--indigo{% elif alloc.returned_condition == 'Fair' %}af-tag--amber{% else %}af-tag--rose{% endif %}" style="padding: 2px 8px; font-size: 11px;">
+                                            {{ alloc.returned_condition or 'Good' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div style="padding: 24px; text-align: center; color: var(--af-text-muted);">
+                            No past allocations found in the history ledger.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     RETURN ASSET MODAL
+══════════════════════════════════════ -->
+<div class="af-modal-overlay" id="returnModal">
+    <div class="af-modal-card">
+        <button class="af-modal-close-btn" onclick="closeModal('returnModal')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <h3 class="af-modal-title">Return Asset Check-in</h3>
+        <p style="font-size:13px; color:var(--af-text-muted); margin-bottom:15px;" id="return-asset-label"></p>
+        <form method="POST">
+            <input type="hidden" name="action" value="return_asset">
+            <input type="hidden" id="return-alloc-id" name="allocation_id">
+
+            <div class="af-field-group">
+                <label for="return-condition">Check-in Condition</label>
+                <select id="return-condition" name="returned_condition" class="af-form-select">
+                    <option value="Good">Good</option>
+                    <option value="Fair">Fair / Worn</option>
+                    <option value="Damaged">Damaged / Broken</option>
+                </select>
+            </div>
+
+            <div class="af-field-group">
+                <label for="return-notes">Check-in Notes</label>
+                <textarea id="return-notes" name="check_in_notes" class="af-form-input" style="height: 100px; resize:none;" placeholder="Enter details about physical condition..."></textarea>
+            </div>
+
+            <button type="submit" class="af-btn-pill">Mark Returned</button>
+        </form>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     REQUEST TRANSFER MODAL (FOR EMPLOYEES)
+══════════════════════════════════════ -->
+<div class="af-modal-overlay" id="requestTransferModal">
+    <div class="af-modal-card">
+        <button class="af-modal-close-btn" onclick="closeModal('requestTransferModal')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <h3 class="af-modal-title">Request Transfer</h3>
+        <p style="font-size:13px; color:var(--af-text-muted); margin-bottom:15px;" id="transfer-asset-label"></p>
+        <form method="POST">
+            <input type="hidden" name="action" value="request_transfer">
+            <input type="hidden" id="transfer-asset-id" name="asset_id">
+
+            <div class="af-field-group">
+                <label for="transfer-recipient">Transfer Recipient</label>
+                <select id="transfer-recipient" name="to_employee_id" class="af-form-select" required>
+                    {% for emp in employees_list %}
+                    {% if emp.id != session.get('user_id') %}
+                    <option value="{{ emp.id }}">{{ emp.name }} ({{ emp.email }})</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" class="af-btn-pill">Request Transfer</button>
+        </form>
+    </div>
+</div>
+
+<script>
+// Tab switcher
+function switchTab(tabId) {
+    document.querySelectorAll('.af-tab-link').forEach(btn => btn.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    
+    document.querySelectorAll('.af-tab-panel').forEach(panel => panel.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+}
+
+// Modal open/close helpers
+function openModal(id) {
+    document.getElementById(id).style.display = 'flex';
+}
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
+// Populating Return Asset Modal
+function openReturnModal(allocId, assetLabel) {
+    document.getElementById('return-alloc-id').value = allocId;
+    document.getElementById('return-asset-label').innerText = "Asset: " + assetLabel;
+    openModal('returnModal');
+}
+
+// Populating Request Transfer Modal
+function openRequestTransferModal(assetId, assetLabel) {
+    document.getElementById('transfer-asset-id').value = assetId;
+    document.getElementById('transfer-asset-label').innerText = "Transferring: " + assetLabel;
+    openModal('requestTransferModal');
+}
+
+// Mobile sidebar toggle
+const sidebar = document.getElementById('afSidebar');
+const overlay = document.getElementById('sidebarOverlay');
+const toggle = document.getElementById('sidebarToggle');
+const closeBtn = document.getElementById('sidebarClose');
+
+function openSidebar() { sidebar.classList.add('is-open'); overlay.classList.add('is-visible'); }
+function closeSidebar() { sidebar.classList.remove('is-open'); overlay.classList.remove('is-visible'); }
+
+if (toggle) toggle.addEventListener('click', openSidebar);
+if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+if (overlay) overlay.addEventListener('click', closeSidebar);
+</script>
+
+</body>
+</html>

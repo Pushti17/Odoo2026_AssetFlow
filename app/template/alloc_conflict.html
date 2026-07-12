@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Allocation Conflict Resolution – AssetFlow</title>
+    <meta name="description" content="Conflict resolution workflow for allocated assets.">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
+    <style>
+        .container {
+            max-width: 500px;
+            text-align: center;
+        }
+        .conflict-badge {
+            background: rgba(244,63,94,.12);
+            color: var(--af-rose, #f43f5e);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            display: inline-block;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+        .asset-box {
+            background: rgba(99,102,241,.04);
+            border: 1px solid rgba(99,102,241,.1);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 24px;
+            text-align: left;
+        }
+        .asset-box strong {
+            display: block;
+            font-size: 16px;
+            color: #2d3748;
+            margin-bottom: 4px;
+        }
+        .asset-box span {
+            font-size: 13.5px;
+            color: #718096;
+        }
+        .holder-info {
+            font-size: 14px;
+            color: #4a5568;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+        .holder-info strong {
+            color: #2d3748;
+        }
+        .action-btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .btn-action {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 50px;
+            font-family: inherit;
+            font-size: 14.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .btn-force {
+            background: #f43f5e;
+            color: white;
+            box-shadow: 0 4px 12px rgba(244,63,94,.2);
+        }
+        .btn-force:hover {
+            background: #e11d48;
+            transform: translateY(-1.5px);
+        }
+        .btn-transfer {
+            background: #6366f1;
+            color: white;
+            box-shadow: 0 4px 12px rgba(99,102,241,.2);
+        }
+        .btn-transfer:hover {
+            background: #4f46e5;
+            transform: translateY(-1.5px);
+        }
+        .btn-cancel {
+            background: rgba(99,102,241,.06);
+            color: #6366f1;
+        }
+        .btn-cancel:hover {
+            background: rgba(99,102,241,.12);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="logo">⚠️</div>
+    
+    <span class="conflict-badge">Allocation Conflict</span>
+    
+    <h2>Asset Already Taken</h2>
+    
+    <div class="asset-box">
+        <strong>{{ asset.name }}</strong>
+        <span>Tag: {{ asset.asset_tag }} &middot; Status: {{ asset.status }}</span>
+    </div>
+
+    <p class="holder-info">
+        This asset is currently held by <strong>{{ holder.name }}</strong> ({{ holder.email }})
+        {% if role == 'Department Head' %}
+        in <strong>your department</strong>.
+        {% else %}
+        in the organisation.
+        {% endif %}
+    </p>
+
+    <div class="action-btn-group">
+        
+        <!-- Form 1: Request Transfer (Available for Admin, Manager, Dept Head) -->
+        <form method="POST" action="{{ url_for('alloc.index') }}">
+            <input type="hidden" name="action" value="request_transfer">
+            <input type="hidden" name="asset_id" value="{{ asset.id }}">
+            <input type="hidden" name="to_employee_id" value="{{ target_emp.id }}">
+            <button type="submit" class="btn-action btn-transfer">
+                Request Transfer to {{ target_emp.name }}
+            </button>
+        </form>
+
+        <!-- Form 2: Force Reallocate (Available only for Admin / Asset Manager) -->
+        {% if role in ['Admin', 'Asset Manager'] %}
+        <form method="POST" action="{{ url_for('alloc.index') }}">
+            <input type="hidden" name="action" value="allocate">
+            <input type="hidden" name="asset_id" value="{{ asset.id }}">
+            <input type="hidden" name="employee_id" value="{{ target_emp.id }}">
+            <input type="hidden" name="expected_return_date" value="{{ exp_return_str }}">
+            <input type="hidden" name="force" value="true">
+            <button type="submit" class="btn-action btn-force">
+                Force Re-allocate Immediately
+            </button>
+        </form>
+        {% endif %}
+
+        <!-- Form 3: Cancel -->
+        <a href="{{ url_for('alloc.index') }}" style="text-decoration:none;">
+            <button class="btn-action btn-cancel">Cancel and Go Back</button>
+        </a>
+
+    </div>
+</div>
+
+</body>
+</html>

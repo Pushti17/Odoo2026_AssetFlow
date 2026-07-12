@@ -102,7 +102,7 @@
 
         <!-- 5. Allocation & Transfer -->
         {% if role in ['Admin', 'Asset Manager', 'Department Head', 'Employee'] %}
-        <a href="#"
+        <a href="{{ url_for('alloc.index') }}"
            class="af-sidebar__item {% if page == 'alloc.index' %}af-sidebar__item--active{% endif %}"
            id="nav-allocation">
             <svg class="af-sidebar__icon" viewBox="0 0 24 24" fill="none"

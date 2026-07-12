@@ -74,6 +74,8 @@ class Allocation(db.Model):
     returned_date = db.Column(db.DateTime, nullable=True)
     
     is_active = db.Column(db.Boolean, default=True, index=True)
+    check_in_notes = db.Column(db.Text, nullable=True)
+    returned_condition = db.Column(db.String(50), nullable=True)
 
     employee = db.relationship('Employee', backref='allocations')
 
